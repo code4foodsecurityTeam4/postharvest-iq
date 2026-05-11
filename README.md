@@ -64,4 +64,3 @@ FastAPI · MySQL · LSTM · XGBoost · Africa's Talking USSD · Streamlit
 
 ---
 
-*Presentation Day: Thursday 11 June 2026*
