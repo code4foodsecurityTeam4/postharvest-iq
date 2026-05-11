@@ -1,56 +1,67 @@
 # PostHarvest IQ
 
-A USSD-powered sell-or-store decision intelligence service
-for smallholder maize farmers in Northern Ghana.
+A USSD-powered sell-or-store decision intelligence service for 
+smallholder maize farmers in Northern Ghana.
 
 Built for the WFP Code4FoodSecurity Fellowship 2026 — Blossom Academy.
 
+---
+
+## What It Does
+
+A farmer dials `*384#` on any basic phone, selects their crop and 
+district, and receives a **STORE / SELL NOW / SELL PARTIAL** 
+recommendation with the net financial gain in Ghana cedis and the 
+nearest verified storage location. Available in English, Dagbani, 
+and Hausa.
+
+Powered by an LSTM price forecasting model trained on WFP VAM data 
+and an XGBoost decision classifier.
+
+---
+
 ## Setup
 
-### 1. Clone the repo
-git clone https://github.com/your-org/postharvest-iq.git
+```bash
+# Clone
+git clone https://github.com/code4foodsecurityTeam4/postharvest-iq.git
 cd postharvest-iq
 
-### 2. Create virtual environment
-python -m venv venv
-source venv/bin/activate        # Mac/Linux
-venv\Scripts\activate           # Windows
-
-### 3. Install dependencies
+# Environment
+conda create -n postharvest python=3.11
+conda activate postharvest
 pip install -r requirements.txt
+pip install cryptography
 
-### 4. Set up environment variables
+# Configure
 cp .env.example .env
-# Open .env and fill in your MySQL credentials
+# Fill in your MySQL credentials in .env
 
-### 5. Create MySQL database
+# Database
 mysql -u root -p
-CREATE DATABASE postharvest_iq;
+CREATE DATABASE IF NOT EXISTS postharvest_iq;
 EXIT;
 
-### 6. Run the API
-uvicorn app.main:app --reload
+# Run
+uvicorn app.main:app --reload --host localhost
+```
 
-### 7. Open API docs
-http://localhost:8000/docs
+API docs: `http://localhost:8000/docs`
 
-## Team
+---
 
-| Role | Name |
-|------|------|
-| Backend Lead | [Your name] |
-| ML Lead | |
-| Data Lead | |
-| USSD Developer | |
-| Dashboard Developer | |
-| Integration Lead | |
-| Presentation Lead | |
+## Stack
 
-## Project Structure
+FastAPI · MySQL · LSTM · XGBoost · Africa's Talking USSD · Streamlit
 
-app/           FastAPI backend
-app/ml/        ML models and training scripts
-data/          Datasets (raw/ is gitignored)
-dashboard/     Streamlit officer dashboard
-notebooks/     Jupyter notebooks for ML work
-tests/         Automated tests
+---
+
+## Rules
+
+- Never push directly to `main`
+- Always create a branch: `git checkout -b feature/your-task`
+- Open a Pull Request and get one approval before merging
+
+---
+
+*Presentation Day: Thursday 11 June 2026*
