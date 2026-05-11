@@ -1,0 +1,15 @@
+.env
+data/raw/
+__pycache__/
+*.pyc
+*.pyo
+*.pt
+*.pkl
+*.pth
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+app/ml/models/*.pt
+app/ml/models/*.pkl
