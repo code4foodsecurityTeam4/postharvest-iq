@@ -41,7 +41,6 @@ cp .env.example .env
 mysql -u root -p
 CREATE DATABASE IF NOT EXISTS postharvest_iq;
 EXIT;
-
 # Run
 uvicorn app.main:app --reload --host localhost
 ```
