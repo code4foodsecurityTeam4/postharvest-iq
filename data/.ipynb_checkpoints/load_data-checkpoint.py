@@ -1,9 +1,12 @@
+import os
 import pandas as pd
 from sqlalchemy import create_engine
 
-engine = create_engine(
-    "mysql+pymysql://root:postharvest2026@127.0.0.1:3306/postharvest_iq"
-)
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable is required")
+
+engine = create_engine(database_url)
 
 # Load markets
 markets = pd.read_csv("data/raw/wfp_markets_gha.csv")
