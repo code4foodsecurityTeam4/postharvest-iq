@@ -13,3 +13,4 @@ venv/
 .DS_Store
 app/ml/models/*.pt
 app/ml/models/*.pkl
+data/processed/
