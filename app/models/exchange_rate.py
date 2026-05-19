@@ -5,10 +5,11 @@ class ExchangeRate(Base):
     __tablename__ = "ghana_exchange_rates"
 
     id           = Column(Integer, primary_key=True, autoincrement=True)
-    iso3         = Column(String(10))
-    area         = Column(String(100))
-    year         = Column(Integer)
-    months       = Column(String(50))
-    unit         = Column(String(50))
-    value        = Column(Float)
-    flag         = Column(String(10))
+    iso3         = Column("Iso3", String(10))
+    area         = Column("Area", String(100))
+    year         = Column("Year", Integer)
+    months       = Column("Months", String(50))
+    start_date   = Column("StartDate", String(50))
+    unit         = Column("Unit", String(50))
+    value        = Column("Value", Float)
+    flag         = Column("Flag", String(10))
