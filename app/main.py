@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.core.database import engine, Base
+import app.models  # noqa: F401 — registers all ORM models with Base before create_all
 from app.api.routes import ussd, storage, forecasts, dashboard
 
 Base.metadata.create_all(bind=engine)
