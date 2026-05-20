@@ -1,28 +1,24 @@
-import os
+# run from project root: python -m data.load_data
 import pandas as pd
-from sqlalchemy import create_engine
-from dotenv import load_dotenv
+from app.core.database import Base, engine
+from app.models.wfp_market import WFPMarket  # noqa: F401 — registers table with Base
+from app.models.wfp_price import WFPPrice    # noqa: F401 — registers table with Base
 
-load_dotenv()
-
-DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME = (
-    os.environ[k] for k in [
-        'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT', 'DB_NAME'
-    ]
-)
-
-engine = create_engine(
-    f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
+# drop and recreate ORM-managed tables so PKs and constraints are applied correctly.
+# exchange rates, producer prices, and language tables use replace because notebooks
+# query all CSV columns via raw SQL — not just the subset the ORM maps.
+WFPMarket.__table__.drop(engine, checkfirst=True)
+WFPPrice.__table__.drop(engine, checkfirst=True)
+Base.metadata.create_all(engine, tables=[WFPMarket.__table__, WFPPrice.__table__])
 
 markets = pd.read_csv("data/raw/wfp_markets_gha.csv")
 markets.columns = markets.columns.str.lower()
-markets.to_sql("wfp_markets", engine, if_exists="replace", index=False)
+markets.to_sql("wfp_markets", engine, if_exists="append", index=False)
 print(f"Markets loaded: {len(markets)}")
 
 prices = pd.read_csv("data/raw/wfp_food_prices_gha.csv")
 prices.columns = prices.columns.str.lower()
-prices.to_sql("wfp_prices", engine, if_exists="replace", index=True, index_label="id")
+prices.to_sql("wfp_prices", engine, if_exists="append", index=False)
 print(f"Prices loaded: {len(prices)}")
 
 missing = []
