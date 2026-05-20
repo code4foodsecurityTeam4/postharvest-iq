@@ -24,7 +24,7 @@ print(f"Markets loaded: {len(markets)}")
 # load prices
 prices = pd.read_csv("data/raw/wfp_food_prices_gha.csv")
 prices.columns = prices.columns.str.lower()
-prices.to_sql("wfp_prices", engine, if_exists="replace", index=False)
+prices.to_sql("wfp_prices", engine, if_exists="replace", index=True, index_label="id")
 print(f"Prices loaded: {len(prices)}")
 
 missing = []
@@ -35,7 +35,7 @@ try:
     fx.columns = fx.columns.str.lower()
     fx.to_sql(
         "ghana_exchange_rates", engine,
-        if_exists="replace", index=False
+        if_exists="replace", index=True, index_label="id"
     )
     print(f"Exchange rates loaded: {len(fx)}")
 except FileNotFoundError:
@@ -48,7 +48,7 @@ try:
     producer.columns = producer.columns.str.lower()
     producer.to_sql(
         "fao_producer_prices", engine,
-        if_exists="replace", index=False
+        if_exists="replace", index=True, index_label="id"
     )
     print(f"Producer prices loaded: {len(producer)}")
 except FileNotFoundError:
