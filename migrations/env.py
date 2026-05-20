@@ -26,7 +26,7 @@ def include_object(obj, name, type_, reflected, compare_to):  # noqa: ARG001
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = str(engine.url)
     context.configure(
         url=url,
         target_metadata=target_metadata,

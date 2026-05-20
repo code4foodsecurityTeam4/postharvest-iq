@@ -26,11 +26,11 @@ def upgrade() -> None:
     op.add_column('storage_locations', sa.Column('is_active', sa.Boolean(), nullable=True))
     op.add_column('storage_locations', sa.Column('last_verified_date', sa.DateTime(), nullable=True))
     op.drop_column('storage_locations', 'cost_per_bag')
-    op.create_foreign_key(None, 'wfp_prices', 'wfp_markets', ['market_id'], ['market_id'])
+    op.create_foreign_key('fk_wfp_prices_market_id_wfp_markets', 'wfp_prices', 'wfp_markets', ['market_id'], ['market_id'])
 
 
 def downgrade() -> None:
-    op.drop_constraint(None, 'wfp_prices', type_='foreignkey')
+    op.drop_constraint('fk_wfp_prices_market_id_wfp_markets', 'wfp_prices', type_='foreignkey')
     op.add_column('storage_locations', sa.Column('cost_per_bag', mysql.FLOAT(), nullable=True))
     op.drop_column('storage_locations', 'last_verified_date')
     op.drop_column('storage_locations', 'is_active')
