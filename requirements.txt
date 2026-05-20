@@ -15,4 +15,4 @@ shap==0.46.0
 streamlit==1.40.0
 plotly==5.22.0
 requests==2.32.2
-pytest==8.2.0
+pytest==8.2.0nbstripout==0.8.1
