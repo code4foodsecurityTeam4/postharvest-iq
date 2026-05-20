@@ -1,15 +1,27 @@
 # run from project root: python -m data.load_data
 import pandas as pd
 from app.core.database import Base, engine
-from app.models.wfp_market import WFPMarket  # noqa: F401 — registers table with Base
-from app.models.wfp_price import WFPPrice    # noqa: F401 — registers table with Base
+from app.models.wfp_market import WFPMarket          # noqa: F401 — registers table with Base
+from app.models.wfp_price import WFPPrice            # noqa: F401 — registers table with Base
+from app.models.exchange_rate import ExchangeRate    # noqa: F401 — registers table with Base
+from app.models.producer_price import ProducerPrice  # noqa: F401 — registers table with Base
 
-# drop and recreate ORM-managed tables so PKs and constraints are applied correctly.
-# exchange rates, producer prices, and language tables use replace because notebooks
-# query all CSV columns via raw SQL — not just the subset the ORM maps.
-WFPMarket.__table__.drop(engine, checkfirst=True)
-WFPPrice.__table__.drop(engine, checkfirst=True)
-Base.metadata.create_all(engine, tables=[WFPMarket.__table__, WFPPrice.__table__])
+# Drop and recreate all ORM-managed tables so PKs and constraints are applied correctly.
+# Language tables have no ORM model and use replace — they are queried via raw SQL only.
+for table in [
+    WFPMarket.__table__,
+    WFPPrice.__table__,
+    ExchangeRate.__table__,
+    ProducerPrice.__table__,
+]:
+    table.drop(engine, checkfirst=True)
+
+Base.metadata.create_all(engine, tables=[
+    WFPMarket.__table__,
+    WFPPrice.__table__,
+    ExchangeRate.__table__,
+    ProducerPrice.__table__,
+])
 
 markets = pd.read_csv("data/raw/wfp_markets_gha.csv")
 markets.columns = markets.columns.str.lower()
@@ -23,13 +35,13 @@ print(f"Prices loaded: {len(prices)}")
 
 missing = []
 
+FX_COLS = ["iso3", "area", "year", "months", "element", "value", "flag"]
+PP_COLS = ["iso3", "area", "item", "element", "year", "months", "unit", "value", "flag"]
+
 try:
     fx = pd.read_csv("data/raw/ghana_exchange_rates.csv")
     fx.columns = fx.columns.str.lower()
-    fx.to_sql(
-        "ghana_exchange_rates", engine,
-        if_exists="replace", index=True, index_label="id"
-    )
+    fx[FX_COLS].to_sql("ghana_exchange_rates", engine, if_exists="append", index=False)
     print(f"Exchange rates loaded: {len(fx)}")
 except FileNotFoundError:
     print("WARNING: ghana_exchange_rates.csv not found")
@@ -38,10 +50,7 @@ except FileNotFoundError:
 try:
     producer = pd.read_csv("data/raw/ghana_producer_prices.csv")
     producer.columns = producer.columns.str.lower()
-    producer.to_sql(
-        "fao_producer_prices", engine,
-        if_exists="replace", index=True, index_label="id"
-    )
+    producer[PP_COLS].to_sql("fao_producer_prices", engine, if_exists="append", index=False)
     print(f"Producer prices loaded: {len(producer)}")
 except FileNotFoundError:
     print("WARNING: ghana_producer_prices.csv not found")

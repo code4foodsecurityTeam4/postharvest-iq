@@ -42,6 +42,9 @@ mysql -u root -p
 CREATE DATABASE IF NOT EXISTS postharvest_iq;
 EXIT;
 
+# Notebook output stripping (required — prevents local paths and stale outputs being committed)
+nbstripout --install
+
 # Run
 uvicorn app.main:app --reload --host localhost
 ```
