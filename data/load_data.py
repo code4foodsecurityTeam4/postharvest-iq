@@ -11,9 +11,11 @@ PP_COLS = ["iso3", "area", "item", "element", "year", "months", "unit", "value",
 
 
 def main():
-    # Drop and recreate all ORM-managed tables so PKs and constraints are applied correctly.
-    # Language tables have no ORM model and use replace — they are queried via raw SQL only.
-    # Drop child tables before parents to satisfy FK constraints.
+    # Drop and recreate only the raw-data tables loaded from CSV.
+    # Application tables (storage_locations, recommendations, price_forecasts)
+    # are populated at runtime by the API and must not be touched here.
+    # Language tables have no ORM model and use if_exists='replace' below.
+    # Drop child tables before parents to satisfy FK constraints:
     # wfp_prices has a FK to wfp_markets, so it must be dropped first.
     for table in [
         WFPPrice.__table__,
