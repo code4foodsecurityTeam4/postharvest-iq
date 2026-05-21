@@ -4,7 +4,8 @@ Bootstrap paths
 ---------------
 New environment:
   1. Start the app once — Base.metadata.create_all() in app/main.py creates all
-     tables with the current schema and auto-stamps this revision via alembic_stamp.
+     tables with the current schema and stamps this revision via
+     alembic.command.stamp(...) (see app/main.py startup logic).
   2. Future schema changes: alembic upgrade head.
 
 Existing environment (pre-migration schema, has cost_per_bag but not the new columns):
