@@ -15,7 +15,14 @@ _log = logging.getLogger(__name__)
 
 # Check BEFORE create_all so we can distinguish a truly empty DB from a
 # pre-Alembic DB that already has tables but no alembic_version row.
-_db_is_fresh = not sa_inspect(engine).has_table('storage_locations')
+# All ORM-managed tables are checked — a DB with any of them present is not fresh.
+_APP_TABLES = {
+    'storage_locations', 'wfp_markets', 'wfp_prices',
+    'ghana_exchange_rates', 'fao_producer_prices',
+    'recommendations', 'price_forecasts',
+}
+_insp = sa_inspect(engine)
+_db_is_fresh = not any(_insp.has_table(t) for t in _APP_TABLES)
 
 Base.metadata.create_all(bind=engine)
 

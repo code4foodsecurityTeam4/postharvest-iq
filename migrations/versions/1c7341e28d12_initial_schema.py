@@ -31,11 +31,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def _col_exists(table: str, col: str) -> bool:
-    return col in [c['name'] for c in sa_inspect(op.get_bind()).get_columns(table)]
+    insp = sa_inspect(op.get_bind())
+    if not insp.has_table(table):
+        return False
+    return col in [c['name'] for c in insp.get_columns(table)]
 
 
-def _fk_exists(table: str, name: str) -> bool:
-    return name in [fk['name'] for fk in sa_inspect(op.get_bind()).get_foreign_keys(table)]
+def _find_fk(table: str, constrained_cols: list, referred_table: str) -> str | None:
+    """Return the constraint name of a matching FK, or None if not found.
+    Matches by columns so auto-generated names (common on MySQL) are handled correctly."""
+    insp = sa_inspect(op.get_bind())
+    if not insp.has_table(table):
+        return None
+    for fk in insp.get_foreign_keys(table):
+        if fk['constrained_columns'] == constrained_cols and fk['referred_table'] == referred_table:
+            return fk['name']
+    return None
 
 
 def upgrade() -> None:
@@ -53,13 +64,14 @@ def upgrade() -> None:
         op.add_column('storage_locations', sa.Column('last_verified_date', sa.DateTime(), nullable=True))
     if _col_exists('storage_locations', 'cost_per_bag'):
         op.drop_column('storage_locations', 'cost_per_bag')
-    if not _fk_exists('wfp_prices', 'fk_wfp_prices_market_id_wfp_markets'):
+    if _find_fk('wfp_prices', ['market_id'], 'wfp_markets') is None:
         op.create_foreign_key('fk_wfp_prices_market_id_wfp_markets', 'wfp_prices', 'wfp_markets', ['market_id'], ['market_id'])
 
 
 def downgrade() -> None:
-    if _fk_exists('wfp_prices', 'fk_wfp_prices_market_id_wfp_markets'):
-        op.drop_constraint('fk_wfp_prices_market_id_wfp_markets', 'wfp_prices', type_='foreignkey')
+    fk_name = _find_fk('wfp_prices', ['market_id'], 'wfp_markets')
+    if fk_name:
+        op.drop_constraint(fk_name, 'wfp_prices', type_='foreignkey')
     if not _col_exists('storage_locations', 'cost_per_bag'):
         op.add_column('storage_locations', sa.Column('cost_per_bag', mysql.FLOAT(), nullable=True))
     if _col_exists('storage_locations', 'last_verified_date'):
