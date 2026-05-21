@@ -5,11 +5,11 @@ from alembic.config import Config
 from alembic import command
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import inspect as sa_inspect
-
-_ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 from app.core.database import engine, Base
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
 from app.api.routes import ussd, storage, forecasts, dashboard
+
+_ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
 _log = logging.getLogger(__name__)
 
@@ -27,10 +27,14 @@ with engine.connect() as _conn:
             command.stamp(Config(str(_ALEMBIC_INI)), "head")
         else:
             # Tables exist but no alembic_version — pre-Alembic DB.
-            # Stamping would silently skip pending migrations; fail loudly instead.
-            _log.warning(
+            # Refuse to start so operators must run migrations before serving traffic.
+            _log.error(
                 "Database has application tables but no alembic_version entry. "
-                "Run 'alembic upgrade head' to apply pending migrations before starting the app."
+                "Run 'alembic upgrade head' before starting the app."
+            )
+            raise RuntimeError(
+                "Refusing to start: pre-Alembic database state detected. "
+                "Run 'alembic upgrade head' before starting the app."
             )
 
 app = FastAPI(

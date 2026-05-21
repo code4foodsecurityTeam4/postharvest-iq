@@ -1,4 +1,4 @@
-"""alter storage_locations: add region/cost/active/verified columns, add wfp_prices FK
+"""alter storage_locations: add region/cost_per_bag_per_month/is_active/last_verified_date, drop cost_per_bag, add wfp_prices FK
 
 Bootstrap paths
 ---------------
