@@ -60,14 +60,21 @@ def upgrade() -> None:
             op.add_column('storage_locations', sa.Column('region', sa.String(length=100), nullable=True))
         if not _col_exists('storage_locations', 'cost_per_bag_per_month'):
             op.add_column('storage_locations', sa.Column('cost_per_bag_per_month', sa.Float(), nullable=True))
+        # Migrate existing cost_per_bag values before dropping the column.
+        # The old column held a per-bag monthly rate so the values carry over directly.
+        if _col_exists('storage_locations', 'cost_per_bag'):
+            op.execute(sa.text(
+                "UPDATE storage_locations "
+                "SET cost_per_bag_per_month = cost_per_bag "
+                "WHERE cost_per_bag_per_month IS NULL AND cost_per_bag IS NOT NULL"
+            ))
+            op.drop_column('storage_locations', 'cost_per_bag')
         if not _col_exists('storage_locations', 'is_active'):
             op.add_column('storage_locations', sa.Column('is_active', sa.Boolean(), nullable=True, server_default=sa.true()))
             op.execute(sa.text("UPDATE storage_locations SET is_active = TRUE WHERE is_active IS NULL"))
             op.alter_column('storage_locations', 'is_active', existing_type=sa.Boolean(), nullable=False)
         if not _col_exists('storage_locations', 'last_verified_date'):
             op.add_column('storage_locations', sa.Column('last_verified_date', sa.DateTime(), nullable=True))
-        if _col_exists('storage_locations', 'cost_per_bag'):
-            op.drop_column('storage_locations', 'cost_per_bag')
 
     # wfp_prices FK — guarded separately; unrelated to storage_locations.
     if insp.has_table('wfp_prices') and insp.has_table('wfp_markets'):
@@ -88,12 +95,18 @@ def downgrade() -> None:
     if insp.has_table('storage_locations'):
         if not _col_exists('storage_locations', 'cost_per_bag'):
             op.add_column('storage_locations', sa.Column('cost_per_bag', mysql.FLOAT(), nullable=True))
+        # Restore cost_per_bag values from cost_per_bag_per_month before dropping the new column.
+        if _col_exists('storage_locations', 'cost_per_bag_per_month'):
+            op.execute(sa.text(
+                "UPDATE storage_locations "
+                "SET cost_per_bag = cost_per_bag_per_month "
+                "WHERE cost_per_bag IS NULL AND cost_per_bag_per_month IS NOT NULL"
+            ))
+            op.drop_column('storage_locations', 'cost_per_bag_per_month')
         if _col_exists('storage_locations', 'last_verified_date'):
             op.drop_column('storage_locations', 'last_verified_date')
         if _col_exists('storage_locations', 'is_active'):
             op.alter_column('storage_locations', 'is_active', existing_type=sa.Boolean(), nullable=True)
             op.drop_column('storage_locations', 'is_active')
-        if _col_exists('storage_locations', 'cost_per_bag_per_month'):
-            op.drop_column('storage_locations', 'cost_per_bag_per_month')
         if _col_exists('storage_locations', 'region'):
             op.drop_column('storage_locations', 'region')
