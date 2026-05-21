@@ -52,6 +52,10 @@ def _find_fk(table: str, constrained_cols: list, referred_table: str) -> str | N
 def upgrade() -> None:
     # language_admin1 and language_admin2 are intentionally unmanaged by Alembic
     # (no ORM model — loaded via load_data.py with if_exists='replace').
+    # If storage_locations doesn't exist yet, create_all() will build it with the
+    # current schema — nothing for this migration to do.
+    if not sa_inspect(op.get_bind()).has_table('storage_locations'):
+        return
     if not _col_exists('storage_locations', 'region'):
         op.add_column('storage_locations', sa.Column('region', sa.String(length=100), nullable=True))
     if not _col_exists('storage_locations', 'cost_per_bag_per_month'):
@@ -69,6 +73,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if not sa_inspect(op.get_bind()).has_table('storage_locations'):
+        return
     fk_name = _find_fk('wfp_prices', ['market_id'], 'wfp_markets')
     if fk_name:
         op.drop_constraint(fk_name, 'wfp_prices', type_='foreignkey')
