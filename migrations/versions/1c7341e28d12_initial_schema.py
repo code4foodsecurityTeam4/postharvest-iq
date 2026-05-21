@@ -52,40 +52,48 @@ def _find_fk(table: str, constrained_cols: list, referred_table: str) -> str | N
 def upgrade() -> None:
     # language_admin1 and language_admin2 are intentionally unmanaged by Alembic
     # (no ORM model — loaded via load_data.py with if_exists='replace').
-    # If storage_locations doesn't exist yet, create_all() will build it with the
-    # current schema — nothing for this migration to do.
-    if not sa_inspect(op.get_bind()).has_table('storage_locations'):
-        return
-    if not _col_exists('storage_locations', 'region'):
-        op.add_column('storage_locations', sa.Column('region', sa.String(length=100), nullable=True))
-    if not _col_exists('storage_locations', 'cost_per_bag_per_month'):
-        op.add_column('storage_locations', sa.Column('cost_per_bag_per_month', sa.Float(), nullable=True))
-    if not _col_exists('storage_locations', 'is_active'):
-        op.add_column('storage_locations', sa.Column('is_active', sa.Boolean(), nullable=True, server_default=sa.true()))
-        op.execute(sa.text("UPDATE storage_locations SET is_active = TRUE WHERE is_active IS NULL"))
-        op.alter_column('storage_locations', 'is_active', existing_type=sa.Boolean(), nullable=False)
-    if not _col_exists('storage_locations', 'last_verified_date'):
-        op.add_column('storage_locations', sa.Column('last_verified_date', sa.DateTime(), nullable=True))
-    if _col_exists('storage_locations', 'cost_per_bag'):
-        op.drop_column('storage_locations', 'cost_per_bag')
-    if _find_fk('wfp_prices', ['market_id'], 'wfp_markets') is None:
-        op.create_foreign_key('fk_wfp_prices_market_id_wfp_markets', 'wfp_prices', 'wfp_markets', ['market_id'], ['market_id'])
+    insp = sa_inspect(op.get_bind())
+
+    # storage_locations column changes — guarded independently of the FK below.
+    if insp.has_table('storage_locations'):
+        if not _col_exists('storage_locations', 'region'):
+            op.add_column('storage_locations', sa.Column('region', sa.String(length=100), nullable=True))
+        if not _col_exists('storage_locations', 'cost_per_bag_per_month'):
+            op.add_column('storage_locations', sa.Column('cost_per_bag_per_month', sa.Float(), nullable=True))
+        if not _col_exists('storage_locations', 'is_active'):
+            op.add_column('storage_locations', sa.Column('is_active', sa.Boolean(), nullable=True, server_default=sa.true()))
+            op.execute(sa.text("UPDATE storage_locations SET is_active = TRUE WHERE is_active IS NULL"))
+            op.alter_column('storage_locations', 'is_active', existing_type=sa.Boolean(), nullable=False)
+        if not _col_exists('storage_locations', 'last_verified_date'):
+            op.add_column('storage_locations', sa.Column('last_verified_date', sa.DateTime(), nullable=True))
+        if _col_exists('storage_locations', 'cost_per_bag'):
+            op.drop_column('storage_locations', 'cost_per_bag')
+
+    # wfp_prices FK — guarded separately; unrelated to storage_locations.
+    if insp.has_table('wfp_prices') and insp.has_table('wfp_markets'):
+        if _find_fk('wfp_prices', ['market_id'], 'wfp_markets') is None:
+            op.create_foreign_key('fk_wfp_prices_market_id_wfp_markets', 'wfp_prices', 'wfp_markets', ['market_id'], ['market_id'])
 
 
 def downgrade() -> None:
-    if not sa_inspect(op.get_bind()).has_table('storage_locations'):
-        return
-    fk_name = _find_fk('wfp_prices', ['market_id'], 'wfp_markets')
-    if fk_name:
-        op.drop_constraint(fk_name, 'wfp_prices', type_='foreignkey')
-    if not _col_exists('storage_locations', 'cost_per_bag'):
-        op.add_column('storage_locations', sa.Column('cost_per_bag', mysql.FLOAT(), nullable=True))
-    if _col_exists('storage_locations', 'last_verified_date'):
-        op.drop_column('storage_locations', 'last_verified_date')
-    if _col_exists('storage_locations', 'is_active'):
-        op.alter_column('storage_locations', 'is_active', existing_type=sa.Boolean(), nullable=True)
-        op.drop_column('storage_locations', 'is_active')
-    if _col_exists('storage_locations', 'cost_per_bag_per_month'):
-        op.drop_column('storage_locations', 'cost_per_bag_per_month')
-    if _col_exists('storage_locations', 'region'):
-        op.drop_column('storage_locations', 'region')
+    insp = sa_inspect(op.get_bind())
+
+    # wfp_prices FK — guarded separately; unrelated to storage_locations.
+    if insp.has_table('wfp_prices') and insp.has_table('wfp_markets'):
+        fk_name = _find_fk('wfp_prices', ['market_id'], 'wfp_markets')
+        if fk_name:
+            op.drop_constraint(fk_name, 'wfp_prices', type_='foreignkey')
+
+    # storage_locations column changes — guarded independently.
+    if insp.has_table('storage_locations'):
+        if not _col_exists('storage_locations', 'cost_per_bag'):
+            op.add_column('storage_locations', sa.Column('cost_per_bag', mysql.FLOAT(), nullable=True))
+        if _col_exists('storage_locations', 'last_verified_date'):
+            op.drop_column('storage_locations', 'last_verified_date')
+        if _col_exists('storage_locations', 'is_active'):
+            op.alter_column('storage_locations', 'is_active', existing_type=sa.Boolean(), nullable=True)
+            op.drop_column('storage_locations', 'is_active')
+        if _col_exists('storage_locations', 'cost_per_bag_per_month'):
+            op.drop_column('storage_locations', 'cost_per_bag_per_month')
+        if _col_exists('storage_locations', 'region'):
+            op.drop_column('storage_locations', 'region')
