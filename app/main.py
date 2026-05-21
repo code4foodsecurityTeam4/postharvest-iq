@@ -1,9 +1,17 @@
 from fastapi import FastAPI
+from alembic.config import Config
+from alembic import command
+from alembic.runtime.migration import MigrationContext
 from app.core.database import engine, Base
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
 from app.api.routes import ussd, storage, forecasts, dashboard
 
 Base.metadata.create_all(bind=engine)
+
+# On a fresh DB (no alembic_version row), stamp head so future migrations apply cleanly.
+with engine.connect() as _conn:
+    if MigrationContext.configure(_conn).get_current_revision() is None:
+        command.stamp(Config("alembic.ini"), "head")
 
 app = FastAPI(
     title="PostHarvest IQ API",

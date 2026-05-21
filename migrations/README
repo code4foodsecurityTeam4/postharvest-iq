@@ -1,1 +1,49 @@
-Generic single-database configuration.
+PostHarvest IQ — Alembic migrations
+
+This project uses a hybrid schema management strategy:
+- Base.metadata.create_all() in app/main.py handles initial table creation on startup.
+- Alembic manages incremental schema changes after the baseline is established.
+
+All migration operations are guarded with existence checks so they are safe to run
+regardless of which bootstrap path was used.
+
+---
+
+New environment setup
+---------------------
+1. Configure your database URL in .env (DATABASE_URL).
+2. Start the app once:  uvicorn app.main:app
+   - create_all() creates all tables.
+   - The app auto-stamps alembic_version to head (no manual step needed).
+3. All future schema changes are applied with:  alembic upgrade head
+
+Existing environment (applying migrations to a running DB)
+----------------------------------------------------------
+alembic upgrade head
+
+This is safe to run at any time. Each migration checks whether its changes have
+already been applied (e.g., column already exists from a prior create_all) and
+skips any operations that are already in place.
+
+Rolling back
+------------
+alembic downgrade -1       # one step back
+alembic downgrade base     # all the way back (drops migration changes only —
+                           # tables created by create_all are not removed)
+
+Generating new migrations
+-------------------------
+After changing an ORM model, autogenerate a new revision:
+
+  alembic revision --autogenerate -m "describe the change"
+
+Review the generated file before committing — autogenerate cannot detect every
+change (e.g., server defaults, check constraints) and may include spurious diffs
+for tables managed outside Alembic (language_admin1, language_admin2 are excluded
+via include_object in env.py).
+
+Tables intentionally outside Alembic
+-------------------------------------
+language_admin1 and language_admin2 have no ORM model. They are loaded and
+refreshed by data/load_data.py using if_exists='replace'. Do not add them to
+ORM models or generate migrations for them.
