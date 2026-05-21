@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, true
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -18,6 +18,6 @@ class StorageLocation(Base):
     crops_accepted          = Column(String(200))
     contact_number          = Column(String(20))
     verified                = Column(Boolean, default=False)
-    is_active               = Column(Boolean, default=True)
+    is_active               = Column(Boolean, nullable=False, default=True, server_default=true())
     last_verified_date      = Column(DateTime, nullable=True)
     created_at              = Column(DateTime, default=func.now())
