@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
 from app.core.database import Base
 
 class WFPPrice(Base):
@@ -9,7 +9,7 @@ class WFPPrice(Base):
     admin1       = Column(String(100), nullable=False)
     admin2       = Column(String(100), nullable=False)
     market       = Column(String(200), nullable=False)
-    market_id    = Column(Integer,     nullable=False)
+    market_id    = Column(Integer,     ForeignKey('wfp_markets.market_id'), nullable=False)
     latitude     = Column(Float)
     longitude    = Column(Float)
     category     = Column(String(100))

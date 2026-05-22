@@ -1,9 +1,51 @@
+import logging
+from pathlib import Path
 from fastapi import FastAPI
+from alembic.config import Config
+from alembic import command
+from alembic.runtime.migration import MigrationContext
+from sqlalchemy import inspect as sa_inspect
 from app.core.database import engine, Base
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
 from app.api.routes import ussd, storage, forecasts, dashboard
 
+_ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
+
+_log = logging.getLogger(__name__)
+
+_APP_TABLES = {
+    'storage_locations', 'wfp_markets', 'wfp_prices',
+    'ghana_exchange_rates', 'fao_producer_prices',
+    'recommendations', 'price_forecasts',
+}
+
+# Inspect DB state BEFORE any mutations so we can make the right decision
+# without having already changed anything.
+_insp = sa_inspect(engine)
+_db_is_fresh = not any(_insp.has_table(t) for t in _APP_TABLES)
+
+with engine.connect() as _conn:
+    _current_revision = MigrationContext.configure(_conn).get_current_revision()
+
+if _current_revision is None and not _db_is_fresh:
+    # Tables exist but no alembic_version — pre-Alembic DB.
+    # Reject before touching the schema so nothing is mutated.
+    _log.error(
+        "Database has application tables but no alembic_version entry. "
+        "Run 'alembic upgrade head' before starting the app."
+    )
+    raise RuntimeError(
+        "Refusing to start: pre-Alembic database state detected. "
+        "Run 'alembic upgrade head' before starting the app."
+    )
+
+# Safe to proceed — either a fresh DB or one already managed by Alembic.
 Base.metadata.create_all(bind=engine)
+
+if _current_revision is None and _db_is_fresh:
+    # Truly new DB — create_all just built the full schema, stamp head
+    # so future `alembic upgrade head` runs apply only new migrations.
+    command.stamp(Config(str(_ALEMBIC_INI)), "head")
 
 app = FastAPI(
     title="PostHarvest IQ API",
