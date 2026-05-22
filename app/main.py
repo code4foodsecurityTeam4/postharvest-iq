@@ -7,10 +7,9 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import inspect as sa_inspect
 from app.core.database import engine, Base
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
-from app.api.routes import ussd, storage, forecasts, dashboard
+from app.api.routes import ussd, storage, forecasts, dashboard, recommendations
 
 _ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
-
 _log = logging.getLogger(__name__)
 
 _APP_TABLES = {
@@ -19,8 +18,6 @@ _APP_TABLES = {
     'recommendations', 'price_forecasts',
 }
 
-# Inspect DB state BEFORE any mutations so we can make the right decision
-# without having already changed anything.
 _insp = sa_inspect(engine)
 _db_is_fresh = not any(_insp.has_table(t) for t in _APP_TABLES)
 
@@ -28,8 +25,6 @@ with engine.connect() as _conn:
     _current_revision = MigrationContext.configure(_conn).get_current_revision()
 
 if _current_revision is None and not _db_is_fresh:
-    # Tables exist but no alembic_version — pre-Alembic DB.
-    # Reject before touching the schema so nothing is mutated.
     _log.error(
         "Database has application tables but no alembic_version entry. "
         "Run 'alembic upgrade head' before starting the app."
@@ -39,12 +34,9 @@ if _current_revision is None and not _db_is_fresh:
         "Run 'alembic upgrade head' before starting the app."
     )
 
-# Safe to proceed — either a fresh DB or one already managed by Alembic.
 Base.metadata.create_all(bind=engine)
 
 if _current_revision is None and _db_is_fresh:
-    # Truly new DB — create_all just built the full schema, stamp head
-    # so future `alembic upgrade head` runs apply only new migrations.
     command.stamp(Config(str(_ALEMBIC_INI)), "head")
 
 app = FastAPI(
@@ -53,10 +45,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-app.include_router(ussd.router,      prefix="/ussd",      tags=["USSD"])
-app.include_router(storage.router,   prefix="/storage",   tags=["Storage"])
-app.include_router(forecasts.router, prefix="/forecasts", tags=["Forecasts"])
-app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+app.include_router(ussd.router,            prefix="/ussd",            tags=["USSD"])
+app.include_router(storage.router,         prefix="/storage",         tags=["Storage"])
+app.include_router(forecasts.router,       prefix="/forecasts",       tags=["Forecasts"])
+app.include_router(dashboard.router,       prefix="/dashboard",       tags=["Dashboard"])
+app.include_router(recommendations.router, prefix="/recommendations",  tags=["Recommendations"])
 
 @app.get("/")
 def root():
