@@ -63,7 +63,7 @@ def get_recommendation(
     phone_number: str = "",
     session_id: str = "",
     db: Session = None,
-    storage_cost_per_bag_month: float = 6.0,
+    storage_cost_per_bag_month: float = 0.80,
 ) -> dict:
     current_price = get_current_price(crop, district, db)
     forecast_data = get_forecast(crop, district, db)
