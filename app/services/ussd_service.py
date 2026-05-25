@@ -81,7 +81,7 @@ def handle_ussd_session(
             return (
                 f"CON {s[decision.lower().replace('_now','_now').replace('sell_now','sell_now')]}\n"
                 f"+GHS {gain_per_bag}/bag\n"
-                f"Net: GHS {net_total}\n"
+               f"Net: GHS {net_total}\n"
                 "1. Find storage near me\n"
                 "2. Sell all now\n"
                 "3. Sell half store half\n"
