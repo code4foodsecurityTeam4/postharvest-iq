@@ -42,6 +42,12 @@ mysql -u root -p
 CREATE DATABASE IF NOT EXISTS postharvest_iq;
 EXIT;
 
+# Run migrations to create all tables
+alembic upgrade head
+
+# Seed warehouse data (run once after creating the DB)
+python scripts/seed_storage_locations.py
+
 # Notebook output stripping (required — prevents local paths and stale outputs being committed)
 nbstripout --install
 
