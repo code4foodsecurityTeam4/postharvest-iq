@@ -12,6 +12,7 @@ async def ussd_callback(
     serviceCode: str = Form(...),
     phoneNumber: str = Form(...),
     text: str = Form(default=""),
+    networkCode: str = Form(default=""),
     db: Session = Depends(get_db)
 ):
     response = ussd_service.handle_ussd_session(
