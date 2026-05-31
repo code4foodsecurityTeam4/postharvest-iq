@@ -1,0 +1,148 @@
+{
+  "best_classifier": "XGBoost",
+  "best_params": {
+    "colsample_bytree": "0.5254233401144095",
+    "learning_rate": "0.09664734825734933",
+    "max_depth": "3",
+    "min_child_weight": "9",
+    "n_estimators": "148",
+    "subsample": "0.7365191150830909"
+  },
+  "cv_macro_f1": 0.2666,
+  "val_macro_f1": 0.3565,
+  "test_macro_f1": 0.2464,
+  "overfit_gap": 0.722,
+  "overfit_detected": true,
+  "balance_method": "SMOTE",
+  "split_method": "chronological_70_15_15_no_shuffle",
+  "encoding": "ColumnTransformer+OneHotEncoder (fitted on train only)",
+  "target_encoding": "LabelEncoder (fitted on train only)",
+  "features": [
+    "market_Bolga",
+    "market_Kumasi",
+    "market_Tamale",
+    "market_Techiman",
+    "market_Wa",
+    "commodity_Maize",
+    "commodity_Millet",
+    "commodity_Sorghum",
+    "price_lag1",
+    "price_lag2",
+    "price_lag3",
+    "rolling_mean_3",
+    "rolling_std_3",
+    "price_pct_change",
+    "exchange_rate",
+    "producer_price_index",
+    "month_sin",
+    "month_cos",
+    "is_harvest_season",
+    "is_lean_season",
+    "price_vs_annual",
+    "price_yoy"
+  ],
+  "ohe_columns": [
+    "market_Bolga",
+    "market_Kumasi",
+    "market_Tamale",
+    "market_Techiman",
+    "market_Wa",
+    "commodity_Maize",
+    "commodity_Millet",
+    "commodity_Sorghum"
+  ],
+  "lstm_features": [
+    "price",
+    "exchange_rate",
+    "producer_price_index",
+    "month_sin",
+    "month_cos",
+    "price_lag1",
+    "price_lag2",
+    "price_lag3",
+    "rolling_mean_3",
+    "rolling_std_3"
+  ],
+  "n_lstm_features": 10,
+  "lstm_seq_len": 12,
+  "lstm_hidden": 64,
+  "lstm_layers": 2,
+  "lstm_mae_ghs": 280.29,
+  "lstm_rmse_ghs": 312.15,
+  "lstm_mape_pct": 47.65,
+  "lstm_r2": -3.1521,
+  "lstm_dir_accuracy": 61.1,
+  "best_forecast_model": "Linear Regression",
+  "decision_classes": [
+    "SELL_NOW",
+    "SELL_PARTIAL",
+    "STORE"
+  ],
+  "seed": 42,
+  "all_cls_results": {
+    "XGBoost": {
+      "cv_f1": 0.2666,
+      "val_f1": 0.3565,
+      "test_f1": 0.2464,
+      "gap": 0.722
+    },
+    "Random Forest": {
+      "cv_f1": 0.234,
+      "val_f1": 0.319,
+      "test_f1": 0.3477,
+      "gap": 0.5412
+    },
+    "Gradient Boosting": {
+      "cv_f1": 0.2703,
+      "val_f1": 0.3248,
+      "test_f1": 0.192,
+      "gap": 0.7601
+    },
+    "Decision Tree": {
+      "cv_f1": 0.2126,
+      "val_f1": 0.2865,
+      "test_f1": 0.2356,
+      "gap": 0.4422
+    },
+    "Logistic Regression": {
+      "cv_f1": 0.2134,
+      "val_f1": 0.2086,
+      "test_f1": 0.3064,
+      "gap": 0.3336
+    }
+  },
+  "all_forecast_results": {
+    "LSTM (Global, Multivariate)": {
+      "name": "LSTM (Global, Multivariate)",
+      "RMSE": 312.15,
+      "MAE": 280.29,
+      "MAPE": 47.65,
+      "R2": -3.1521,
+      "DirAcc": 61.1
+    },
+    "Linear Regression": {
+      "name": "Linear Regression",
+      "RMSE": 0.0,
+      "MAE": 0.0,
+      "MAPE": 0.0,
+      "R2": 1.0,
+      "DirAcc": 100.0
+    },
+    "RF Regressor": {
+      "name": "RF Regressor",
+      "RMSE": 380.13,
+      "MAE": 347.85,
+      "MAPE": 60.18,
+      "R2": -5.1573,
+      "DirAcc": 77.8
+    },
+    "XGBoost Regressor": {
+      "name": "XGBoost Regressor",
+      "RMSE": 373.15,
+      "MAE": 340.25,
+      "MAPE": 58.66,
+      "R2": -4.9332,
+      "DirAcc": 55.6
+    }
+  }
+}
