@@ -12,7 +12,4 @@ venv/
 .pytest_cache/
 .DS_Store
 .ipynb_checkpoints/
-app/ml/models/*.pt
-app/ml/models/*.pkl
-data/processed/
 notebooks/*.nbconvert.ipynb
