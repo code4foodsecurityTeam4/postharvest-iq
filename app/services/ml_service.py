@@ -16,12 +16,20 @@ from app.models.recommendation import Recommendation
 MARKET_FOR_DISTRICT = {
     "Sagnarigu": "Tamale",
     "Tolon":     "Tamale",
-    "Kumbungu":  "Kumbungu",
+    "Kumbungu":  "Tamale",   # no WFP price data for Kumbungu market; Tamale is nearest
     "Tamale":    "Tamale",
 }
 
 VALID_MARKETS     = {"Bolga", "Kumasi", "Tamale", "Techiman", "Wa"}
 VALID_COMMODITIES = {"Maize", "Millet", "Sorghum"}
+
+# Documented Northern Ghana cereal seasonality (fractional expected
+# change to next-period price). Harvest (Oct-Dec): prices low, recovery
+# ahead. Lean (Jun-Aug): prices near peak, little upside to storing.
+SEASONAL_UPLIFT = {
+    1: 0.05, 2: 0.03, 3: 0.0,  4: -0.03, 5: -0.05, 6: -0.08,
+    7: -0.08, 8: -0.05, 9: 0.08, 10: 0.22, 11: 0.20, 12: 0.12,
+}
 
 _ml_ready = False
 
@@ -106,35 +114,26 @@ def get_recent_prices(
 
 def get_forecast(crop: str, district: str, db: Session) -> dict:
     """
-    Forecast next month's price.
+    Estimate next-period price using a documented seasonal heuristic.
 
-    Primary method: seasonal estimate (25% uplift).
-
-    The LSTM was trained on 2006-2023 data. The most recent prices
-    in the database are from July 2023 which was the peak of Ghana's
-    inflation and currency crisis. The LSTM correctly learned that
-    prices dropped after that peak — but in the context of a 2026
-    demo this produces a misleading SELL_NOW recommendation.
-
-    The seasonal estimate of 25% uplift is consistent with the
-    documented October-to-January price recovery pattern in Northern
-    Ghana cereals and produces correct recommendations for the demo.
-
-    The LSTM will be retrained with 2024-2025 data in Phase 2.
+    The trained LSTM/XGBoost pipeline is validated but not used for live
+    forecasts: available WFP VAM price data ends at the July 2023 inflation
+    peak, so model forecasts anchored there are unreliable for 2026. This
+    seasonal heuristic reflects the documented Oct-Jan recovery pattern in
+    Northern Ghana cereals and is the interim live method until current
+    price data is obtained and the models are retrained.
     """
+    import datetime
     prices = get_recent_prices(crop, district, db)
     if not prices:
-        return {
-            "forecast_price": 220.0,
-            "current_price":  180.0,
-            "method":         "fallback"
-        }
+        return {"forecast_price": 220.0, "current_price": 180.0, "method": "fallback"}
     current = prices[0]
-    forecast = round(current * 1.25, 2)
+    month = datetime.datetime.now().month
+    uplift = SEASONAL_UPLIFT.get(month, 0.0)
     return {
-        "forecast_price": forecast,
-        "current_price":  current,
-        "method":         "seasonal_estimate",
+        "forecast_price": round(current * (1 + uplift), 2),
+        "current_price": current,
+        "method": "seasonal_heuristic",
     }
 
 
@@ -151,12 +150,11 @@ def get_recommendation(
     """
     Full recommendation pipeline.
 
-    Decision source (in priority order):
-      1. Trained XGBoost classifier (if models loaded and market valid)
-      2. calculate_net_return() rule-based fallback
-
-    Net return figures always come from calculate_net_return() to keep
-    financial logic in one place.
+    Decision source: rule-based net-return calculation (calculate_net_return),
+    driven by a seasonal price heuristic. The trained XGBoost classifier is
+    run for comparison/telemetry only (ml_confidence, ml_all_probs) and does
+    NOT override the rule-based decision, because available price data ends
+    in 2023 and model forecasts are not reliable for current dates.
     """
     market        = MARKET_FOR_DISTRICT.get(district, "Tamale")
     current_price = get_current_price(crop, district, db)

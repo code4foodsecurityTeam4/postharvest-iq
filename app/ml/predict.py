@@ -18,7 +18,7 @@ import torch.nn as nn
 
 from app.ml.config import (
     CLASSIFIER_PATH, PREPROCESSING_PIPELINE_PATH, LABEL_ENCODER_PATH,
-    FEATURE_COLUMNS_PATH, LSTM_PATH, LSTM_SCALER_PATH, PRICE_SCALER_PATH,
+    FEATURE_COLUMNS_PATH, LSTM_PATH, LSTM_SCALER_PATH,
     METADATA_PATH, LSTM_FEAT_COLS,
     LSTM_SEQ_LEN, LSTM_HIDDEN, LSTM_LAYERS, LSTM_DROPOUT,
 )
@@ -48,7 +48,6 @@ _preprocessor  = joblib.load(PREPROCESSING_PIPELINE_PATH)
 _label_encoder = joblib.load(LABEL_ENCODER_PATH)
 _feature_cols  = joblib.load(FEATURE_COLUMNS_PATH)
 _lstm_scaler   = joblib.load(LSTM_SCALER_PATH)
-_price_scaler  = joblib.load(PRICE_SCALER_PATH)
 
 _n_lstm_feat = len(LSTM_FEAT_COLS)
 _lstm = MultivariateLSTM(_n_lstm_feat)

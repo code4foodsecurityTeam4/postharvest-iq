@@ -56,7 +56,7 @@ NUM_COLS = [
 ]
 
 #  Business logic 
-STORAGE_COST_PER_BAG_MONTH = 5.0   # GHS
+STORAGE_COST_PER_BAG_MONTH = 0.80  # GHS
 STORAGE_MONTHS             = 1.5
 TRANSPORT_COST             = 2.0   # GHS
 STORE_THRESHOLD            = 20.0  # net > 20 → STORE
