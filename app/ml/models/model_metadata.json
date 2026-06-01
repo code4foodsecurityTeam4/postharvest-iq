@@ -72,7 +72,7 @@
   "lstm_mape_pct": 47.65,
   "lstm_r2": -3.1521,
   "lstm_dir_accuracy": 61.1,
-  "best_forecast_model": "Linear Regression",
+  "best_forecast_model": null,
   "decision_classes": [
     "SELL_NOW",
     "SELL_PARTIAL",
@@ -119,14 +119,6 @@
       "MAPE": 47.65,
       "R2": -3.1521,
       "DirAcc": 61.1
-    },
-    "Linear Regression": {
-      "name": "Linear Regression",
-      "RMSE": 0.0,
-      "MAE": 0.0,
-      "MAPE": 0.0,
-      "R2": 1.0,
-      "DirAcc": 100.0
     },
     "RF Regressor": {
       "name": "RF Regressor",
