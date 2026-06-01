@@ -13,7 +13,7 @@ DISTRICT_COORDS = {
 DISTRICT_TO_MARKET = {
     "Sagnarigu": "Tamale",
     "Tolon":     "Tamale",
-    "Kumbungu":  "Kumbungu",
+    "Kumbungu":  "Tamale",   # no WFP price data for Kumbungu market; Tamale is nearest
     "Tamale":    "Tamale",
 }
 
