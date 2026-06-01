@@ -17,6 +17,16 @@ DISTRICTS = {
 
 DEFAULT_QTY = 20
 
+# --- Demo mode -------------------------------------------------------------
+# A normal farmer never types this. If the FIRST segment is "9", the session
+# is in demo mode and the SECOND segment is a month (1-12) used to show how
+# the recommendation changes across the season. Everything after that is the
+# normal flow (language, crop, district, action). This keeps the real farmer
+# menu completely clean — they only ever see 1/2/3 — while letting the
+# presenter show June (SELL) vs October (STORE) live on the phone.
+DEMO_PREFIX = "9"
+# ---------------------------------------------------------------------------
+
 
 def _fmt(n) -> str:
     """Whole cedis with a thousands separator: 2628.4 -> '2,628'."""
@@ -34,6 +44,18 @@ def handle_ussd_session(
 ) -> str:
 
     parts = [p for p in text.split("*") if p]
+
+    # Detect and strip demo mode. If the first segment is the demo prefix,
+    # the second segment is the override month; the rest is the normal flow.
+    demo_month = None
+    if parts and parts[0] == DEMO_PREFIX:
+        if len(parts) >= 2 and parts[1].isdigit():
+            m = int(parts[1])
+            if 1 <= m <= 12:
+                demo_month = m
+        # remove the two demo segments so the rest is the normal flow
+        parts = parts[2:]
+
     level = len(parts)
 
     # Screen 0 — language selection
@@ -81,6 +103,7 @@ def handle_ussd_session(
                 phone_number=phone_number,
                 session_id=session_id,
                 db=db,
+                month=demo_month,
             )
             decision = (rec.get("decision") or "STORE").upper()
             net_total = rec.get("net_total", 0)
@@ -138,7 +161,6 @@ def handle_ussd_session(
                         f"{t(lang, 'cost_per_month').format(cost=loc['cost_per_bag'])}\n"
                         f"{t(lang, 'call')}: {loc['contact_number']}"
                     )
-                # No storage for this crop (e.g. millet at GCX) — be honest
                 return (
                     f"END {t(lang, 'no_storage')}\n"
                     f"{t(lang, 'consider_sell')}\n"
@@ -155,7 +177,7 @@ def handle_ussd_session(
                 )
                 rec = ml_service.get_recommendation(
                     crop=crop, district=district,
-                    quantity_bags=DEFAULT_QTY, db=db,
+                    quantity_bags=DEFAULT_QTY, db=db, month=demo_month,
                 )
                 price = rec.get("current_price", 0)
                 km_str = f"{market.get('distance_km', 0):.1f}"
@@ -176,15 +198,14 @@ def handle_ussd_session(
                 )
                 rec = ml_service.get_recommendation(
                     crop=crop, district=district,
-                    quantity_bags=10, db=db,
+                    quantity_bags=10, db=db, month=demo_month,
                 )
                 net = rec.get("net_total", 0)
                 price = rec.get("current_price", 0)
                 half = 10
 
-                # If storing loses money (negative net), a partial store is
-                # not sound advice — tell the farmer to sell instead of
-                # showing a confusing negative "gain".
+                # If storing loses money (negative net), recommend selling
+                # rather than showing a confusing negative "gain".
                 if net <= 0:
                     return (
                         f"END {t(lang, 'sell_now')}\n"
@@ -202,7 +223,6 @@ def handle_ussd_session(
                     lines.append(f"{t(lang, 'nearest')}: {loc['name']}")
                     lines.append(f"{t(lang, 'call')}: {loc['contact_number']}")
                 else:
-                    # No storage for this crop — don't show an empty name
                     lines.append(t(lang, "no_storage"))
                     lines.append(t(lang, "call_mofa"))
                 return "\n".join(lines)

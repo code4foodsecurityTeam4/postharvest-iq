@@ -54,13 +54,16 @@ FALLBACK_SUMMARY = [
 # Data loading
 # --------------------------------------------------------------------------
 @st.cache_data(ttl=300, show_spinner=False)
-def load_summary():
+def load_summary(month=None):
     """
     Return (rows, source) where source is 'live' or 'offline'.
+    `month` (1-12) optionally asks the API for a specific month's
+    recommendations; None means the real current month.
     Falls back to the sample snapshot if the API can't be reached.
     """
     try:
-        resp = requests.get(SUMMARY_ENDPOINT, timeout=REQUEST_TIMEOUT)
+        params = {"month": month} if month else None
+        resp = requests.get(SUMMARY_ENDPOINT, params=params, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         rows = resp.json().get("summary", [])
         if rows:
@@ -104,14 +107,27 @@ st.caption(
     "operations view"
 )
 
-rows, source = load_summary()
+MONTHS = [
+    "Current month (live)", "January", "February", "March", "April", "May",
+    "June", "July", "August", "September", "October", "November", "December",
+]
+sel = st.selectbox(
+    "View recommendations for:", MONTHS, index=0,
+    help="Defaults to the live current month. Pick a month to see how the "
+         "seasonal model's advice changes across the year — same logic, "
+         "different point in the season.",
+)
+selected_month = None if sel == MONTHS[0] else MONTHS.index(sel)
+
+rows, source = load_summary(selected_month)
 df = pd.DataFrame(rows)
 
 # Source + provenance banner
 col_a, col_b = st.columns([3, 1])
 with col_a:
     if source == "live":
-        st.success(f"Live data from API · refreshed {_dt.datetime.now():%H:%M:%S}")
+        label = "current month" if selected_month is None else MONTHS[selected_month]
+        st.success(f"Live data from API · showing {label} · refreshed {_dt.datetime.now():%H:%M:%S}")
     else:
         st.warning(
             "Showing sample snapshot — live API not reachable. "

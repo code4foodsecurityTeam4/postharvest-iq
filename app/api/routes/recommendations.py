@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 from app.core.database import get_db
 from app.services import ml_service
 
@@ -13,6 +14,7 @@ class RecommendationRequest(BaseModel):
     language: str = "en"
     phone_number: str = ""
     session_id: str = ""
+    month: Optional[int] = None   # demo override; defaults to current month
 
 @router.post("/")
 def get_recommendation(
@@ -26,6 +28,7 @@ def get_recommendation(
         language=request.language,
         phone_number=request.phone_number,
         session_id=request.session_id,
-        db=db
+        db=db,
+        month=request.month,
     )
     return result

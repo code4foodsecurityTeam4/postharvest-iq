@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 from app.core.database import get_db
 from app.services import ml_service, storage_service
 
 router = APIRouter()
 
 @router.get("/summary")
-def get_dashboard_summary(db: Session = Depends(get_db)):
+def get_dashboard_summary(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    db: Session = Depends(get_db),
+):
     districts = ["Sagnarigu", "Tolon", "Kumbungu", "Tamale"]
     crops = ["Maize", "Millet", "Sorghum"]
     summary = []
@@ -17,7 +21,8 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
                     crop=crop,
                     district=district,
                     quantity_bags=20,
-                    db=db
+                    db=db,
+                    month=month,
                 )
                 summary.append({
                     "district": district,
@@ -34,4 +39,4 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
                     "decision": "UNAVAILABLE",
                     "net_total": None,
                 })
-    return {"summary": summary}
+    return {"summary": summary, "month": month}

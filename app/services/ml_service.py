@@ -112,30 +112,28 @@ def get_recent_prices(
     return [float(r[0]) for r in rows]
 
 
-def get_forecast(crop: str, district: str, db: Session) -> dict:
+def get_forecast(crop: str, district: str, db: Session, month: int = None) -> dict:
     """
     Estimate next-period price using a documented seasonal heuristic.
 
-    The trained LSTM/XGBoost pipeline is validated but not used for live
-    forecasts: available WFP VAM price data ends at the July 2023 inflation
-    peak, so model forecasts anchored there are unreliable for 2026. This
-    seasonal heuristic reflects the documented Oct-Jan recovery pattern in
-    Northern Ghana cereals and is the interim live method until current
-    price data is obtained and the models are retrained.
+    `month` defaults to the real current month. It can be overridden (1-12) to
+    show the recommendation for a different point in the season — used in the
+    demo to show that advice changes by season. The output is the genuine
+    seasonal-model result for that month, not a fabricated value.
     """
     import datetime
     prices = get_recent_prices(crop, district, db)
     if not prices:
         return {"forecast_price": 220.0, "current_price": 180.0, "method": "fallback"}
     current = prices[0]
-    month = datetime.datetime.now().month
+    if month is None:
+        month = datetime.datetime.now().month
     uplift = SEASONAL_UPLIFT.get(month, 0.0)
     return {
         "forecast_price": round(current * (1 + uplift), 2),
         "current_price": current,
         "method": "seasonal_heuristic",
     }
-
 
 def get_recommendation(
     crop: str,
@@ -146,6 +144,7 @@ def get_recommendation(
     session_id: str = "",
     db: Session = None,
     storage_cost_per_bag_month: float = 0.80,
+    month: int = None,
 ) -> dict:
     """
     Full recommendation pipeline.
@@ -158,7 +157,7 @@ def get_recommendation(
     """
     market        = MARKET_FOR_DISTRICT.get(district, "Tamale")
     current_price = get_current_price(crop, district, db)
-    forecast_data = get_forecast(crop, district, db)
+    forecast_data = get_forecast(crop, district, db, month=month)
     forecast_price = forecast_data.get("forecast_price", current_price * 1.25)
 
     # calculate net return using rule-based formula
