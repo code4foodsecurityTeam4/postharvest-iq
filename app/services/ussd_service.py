@@ -155,10 +155,13 @@ def handle_ussd_session(
                 )
                 if locations:
                     loc = locations[0]
+                    town = loc.get("district", district)
+                    km = f"{loc['distance_km']:.1f}"
+                    cost = f"{float(loc['cost_per_bag']):.2f}"
                     return (
                         f"END {t(lang, 'nearest')}: {loc['name']}\n"
-                        f"{loc['distance_km']:.1f} km\n"
-                        f"{t(lang, 'cost_per_month').format(cost=loc['cost_per_bag'])}\n"
+                        f"{t(lang, 'store_location').format(town=town, km=km)}\n"
+                        f"{t(lang, 'cost_per_month').format(cost=cost)}\n"
                         f"{t(lang, 'call')}: {loc['contact_number']}"
                     )
                 return (
@@ -181,11 +184,11 @@ def handle_ussd_session(
                 )
                 price = rec.get("current_price", 0)
                 km_str = f"{market.get('distance_km', 0):.1f}"
+                town = market.get("name", "Tamale")
                 return (
                     f"END {t(lang, 'sell_now')}\n"
-                    f"{t(lang, 'price_per_bag').format(price=_fmt(price))}\n"
-                    f"{t(lang, 'market_label')}: {market.get('name', 'Tamale')}\n"
-                    f"{t(lang, 'km_away').format(km=km_str)}"
+                    f"{t(lang, 'price_today').format(price=_fmt(price))}\n"
+                    f"{t(lang, 'nearest_market').format(town=town, km=km_str)}"
                 )
             except Exception:
                 return f"END {t(lang, 'sell_now')}"
@@ -210,7 +213,7 @@ def handle_ussd_session(
                     return (
                         f"END {t(lang, 'sell_now')}\n"
                         f"{t(lang, 'sell_advice')}\n"
-                        f"{t(lang, 'price_per_bag').format(price=_fmt(price))}"
+                        f"{t(lang, 'price_today').format(price=_fmt(price))}"
                     )
 
                 lines = [

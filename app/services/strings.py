@@ -12,10 +12,15 @@ shown in the same key under "en".
 
 USSD screens are read on basic feature phones, often aloud. Keep each
 translation short, plain, and in words a farmer uses day to day. Avoid
-abbreviations that don't read well when spoken (e.g. spell out "month").
+jargon and acronyms (say "warehouse", not "GCX"). Spell words out so they
+read naturally when spoken.
 
 Keys whose values contain {placeholders} (like {bags}) MUST keep the
 placeholder exactly as written — only translate the words around it.
+
+NOTE TO TRANSLATORS: the English here was tightened to avoid repetition
+and jargon. Translate the *meaning*, in the way a Northern Ghana cereal
+farmer would actually say it — not word for word.
 """
 
 STRINGS = {
@@ -24,11 +29,11 @@ STRINGS = {
     # ---------------------------------------------------------------
     "en": {
         "welcome":        "Welcome to PostHarvest IQ",
-        "select_crop":    "Select your crop:",
+        "select_crop":    "Choose your crop:",
         "maize":          "Maize",
         "millet":         "Millet",
         "sorghum":        "Sorghum",
-        "select_dist":    "Select your district:",
+        "select_dist":    "Choose your district:",
 
         # Decision headlines
         "store":          "STORE your crop",
@@ -39,27 +44,28 @@ STRINGS = {
         "earn_per_bag":   "Earn GHS {gain} more per bag if you store",
         "total_for_bags": "Total for {bags} bags: GHS {net}",
         "after_cost":     "(after storage cost)",
-        "sell_advice":    "Best to sell now. Prices are near their peak.",
+        # Reason line for SELL — explains WHY, does not repeat "sell"
+        "sell_advice":    "Prices are high now. Waiting could earn you less.",
 
         # Storage / market lines
-        "nearest":        "Nearest storage",
-        "cost_per_month": "Cost: GHS {cost} per bag per month",
+        "nearest":        "Nearest store",          # plain word, not "GCX"
+        "store_location": "In {town}, {km} km away", # town + distance together
+        "cost_per_month": "Cost: GHS {cost} per bag each month",
         "call":           "Call",
-        "price_per_bag":  "Price: GHS {price} per bag",
-        "market_label":   "Market",
-        "km_away":        "{km} km away",
+        "price_today":    "Price today: GHS {price} per bag",
+        "nearest_market": "Nearest market: {town}, {km} km",
 
         # Partial action
-        "sell_n_now":     "Sell {bags} bags: GHS {amount} now",
+        "sell_n_now":     "Sell {bags} bags now: GHS {amount}",
         "store_n_est":    "Store {bags} bags: about GHS {net} more",
 
         # No-storage / fallback (e.g. millet, which GCX does not store)
-        "no_storage":     "No verified storage for this crop nearby.",
+        "no_storage":     "No store found nearby for this crop.",
         "consider_sell":  "Selling may be your best option.",
         "call_mofa":      "Call MoFA: 118",
         "thanks":         "Thank you for using PostHarvest IQ.",
-        "unavailable":    "Service temporarily unavailable. Please try again shortly.",
-        "invalid":        "Invalid input. Please try again.",
+        "unavailable":    "Service busy. Please try again shortly.",
+        "invalid":        "Wrong entry. Please try again.",
     },
 
     # ---------------------------------------------------------------
@@ -84,11 +90,11 @@ STRINGS = {
         "sell_advice":    "TODO",
 
         "nearest":        "TODO",
+        "store_location": "TODO",   # keep {town} and {km}
         "cost_per_month": "TODO",   # keep {cost}
         "call":           "Sɔŋ",
-        "price_per_bag":  "TODO",   # keep {price}
-        "market_label":   "TODO",
-        "km_away":        "TODO",    # keep {km}
+        "price_today":    "TODO",   # keep {price}
+        "nearest_market": "TODO",   # keep {town} and {km}
 
         "sell_n_now":     "TODO",   # keep {bags} and {amount}
         "store_n_est":    "TODO",   # keep {bags} and {net}
@@ -123,11 +129,11 @@ STRINGS = {
         "sell_advice":    "TODO",
 
         "nearest":        "Kusa",
+        "store_location": "TODO",   # keep {town} and {km}
         "cost_per_month": "TODO",   # keep {cost}
         "call":           "Kira",
-        "price_per_bag":  "TODO",   # keep {price}
-        "market_label":   "TODO",
-        "km_away":        "TODO",    # keep {km}
+        "price_today":    "TODO",   # keep {price}
+        "nearest_market": "TODO",   # keep {town} and {km}
 
         "sell_n_now":     "TODO",   # keep {bags} and {amount}
         "store_n_est":    "TODO",   # keep {bags} and {net}
