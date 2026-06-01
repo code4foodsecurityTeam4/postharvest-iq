@@ -51,6 +51,6 @@ app.include_router(forecasts.router,       prefix="/forecasts",       tags=["For
 app.include_router(dashboard.router,       prefix="/dashboard",       tags=["Dashboard"])
 app.include_router(recommendations.router, prefix="/recommendations",  tags=["Recommendations"])
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {"status": "PostHarvest IQ API running", "version": "1.0.0"}
