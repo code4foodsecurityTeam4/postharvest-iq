@@ -131,9 +131,12 @@ def handle_ussd_session(
                     f"{t(lang, 'total_for_bags').format(bags=DEFAULT_QTY, net=_fmt(net_total))}\n"
                 )
             else:  # SELL_NOW (or any unexpected value -> safe sell advice)
+                current_price = rec.get("current_price", 0)
+                sell_total = current_price * DEFAULT_QTY
                 body = (
                     f"CON {t(lang, 'sell_now')}\n"
-                    f"{t(lang, 'sell_advice')}\n"
+                    f"{t(lang, 'sell_now_price').format(price=_fmt(current_price))}\n"
+                    f"{t(lang, 'sell_now_total').format(bags=DEFAULT_QTY, total=_fmt(sell_total))}\n"
                 )
 
             return body + menu

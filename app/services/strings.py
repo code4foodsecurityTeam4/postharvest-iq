@@ -46,6 +46,9 @@ STRINGS = {
         "after_cost":     "(after storage cost)",
         # Reason line for SELL — explains WHY, does not repeat "sell"
         "sell_advice":    "Prices are high now. Waiting could earn you less.",
+        # SELL recommendation money lines (mirror the STORE screen)
+        "sell_now_price": "Now: GHS {price} per bag",
+        "sell_now_total": "{bags} bags = GHS {total} today",
 
         # Storage / market lines
         "nearest":        "Nearest store",          # plain word, not "GCX"
@@ -88,6 +91,8 @@ STRINGS = {
         "total_for_bags": "TODO",   # keep {bags} and {net}
         "after_cost":     "TODO",
         "sell_advice":    "TODO",
+        "sell_now_price": "TODO",   # keep {price}
+        "sell_now_total": "TODO",   # keep {bags} and {total}
 
         "nearest":        "TODO",
         "store_location": "TODO",   # keep {town} and {km}
@@ -127,6 +132,8 @@ STRINGS = {
         "total_for_bags": "TODO",   # keep {bags} and {net}
         "after_cost":     "TODO",
         "sell_advice":    "TODO",
+        "sell_now_price": "TODO",   # keep {price}
+        "sell_now_total": "TODO",   # keep {bags} and {total}
 
         "nearest":        "Kusa",
         "store_location": "TODO",   # keep {town} and {km}
