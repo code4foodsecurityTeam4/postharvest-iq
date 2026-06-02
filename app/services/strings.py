@@ -47,7 +47,7 @@ STRINGS = {
         # Reason line for SELL — explains WHY, does not repeat "sell"
         "sell_advice":    "Prices are high now. Waiting could earn you less.",
         # SELL recommendation money lines (mirror the STORE screen)
-        "sell_now_price": "Now: GHS {price} per bag",
+        "sell_now_price": "GHS {price} per bag",
         "sell_now_total": "{bags} bags = GHS {total} today",
 
         # Storage / market lines

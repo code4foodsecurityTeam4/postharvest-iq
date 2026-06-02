@@ -112,7 +112,7 @@ def handle_ussd_session(
             )
 
             menu = (
-                "1. Find storage near me\n"
+                "1. Find storage\n"
                 "2. Sell all now\n"
                 "3. Sell half store half\n"
                 "4. Exit"
@@ -132,11 +132,9 @@ def handle_ussd_session(
                 )
             else:  # SELL_NOW (or any unexpected value -> safe sell advice)
                 current_price = rec.get("current_price", 0)
-                sell_total = current_price * DEFAULT_QTY
                 body = (
                     f"CON {t(lang, 'sell_now')}\n"
                     f"{t(lang, 'sell_now_price').format(price=_fmt(current_price))}\n"
-                    f"{t(lang, 'sell_now_total').format(bags=DEFAULT_QTY, total=_fmt(sell_total))}\n"
                 )
 
             return body + menu
@@ -185,12 +183,10 @@ def handle_ussd_session(
                     crop=crop, district=district,
                     quantity_bags=DEFAULT_QTY, db=db, month=demo_month,
                 )
-                price = rec.get("current_price", 0)
-                km_str = f"{market.get('distance_km', 0):.1f}"
+                km_str = f"{market.get('distance_km', 0):.0f}"
                 town = market.get("name", "Tamale")
                 return (
                     f"END {t(lang, 'sell_now')}\n"
-                    f"{t(lang, 'price_today').format(price=_fmt(price))}\n"
                     f"{t(lang, 'nearest_market').format(town=town, km=km_str)}"
                 )
             except Exception:

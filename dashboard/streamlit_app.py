@@ -1,842 +1,353 @@
 """
-PostHarvest IQ — WFP Officer Dashboard
-Streamlit app for WFP officers and evaluators.
-All data comes from the FastAPI backend.
+dashboard/streamlit_app.py — PostHarvest IQ
 """
 
-import streamlit as st
-import requests
+import os
+import datetime as _dt
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
-from datetime import datetime
-import os
+import requests
+import streamlit as st
 
-# ── CONFIG ────────────────────────────────────────────────────────
-API_URL = os.getenv("API_URL", "https://postharvest-iq.onrender.com")
+API_BASE = "https://postharvest-iq.onrender.com"
+SUMMARY_ENDPOINT = f"{API_BASE}/dashboard/summary"
+ACTIVITY_ENDPOINT = f"{API_BASE}/recommendations/activity"
+STORAGE_ENDPOINT = f"{API_BASE}/storage"
+TIMEOUT = 20
+FIG_DIR = os.path.join(os.path.dirname(__file__), "..", "notebooks", "figures")
 
-st.set_page_config(
-    page_title="PostHarvest IQ — WFP Dashboard",
-    page_icon="🌾",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+INK, PANEL = "#14110E", "#1E1A15"
+GOLD, GRAIN, CREAM, MUTE = "#E8A33D", "#D4B483", "#F2E9DC", "#9C8F7A"
+GREEN, RED, AMBER = "#3E8E5A", "#C44536", "#D9820B"
+DEC = {"STORE": (GREEN, "Store"), "SELL_NOW": (RED, "Sell now"),
+       "SELL_PARTIAL": (AMBER, "Sell half"), "UNAVAILABLE": (MUTE, "—")}
+_NOW = _dt.datetime.now()
+CURRENT_LABEL = f"{_NOW:%B %Y} (current)"
+MONTHS = [CURRENT_LABEL, "January", "February", "March", "April", "May",
+          "June", "July", "August", "September", "October", "November", "December"]
+UPLIFT = {1: 5, 2: 3, 3: 0, 4: -3, 5: -5, 6: -8, 7: -8, 8: -5, 9: 8, 10: 22, 11: 20, 12: 12}
+DISTRICTS = ["Sagnarigu", "Tolon", "Kumbungu", "Tamale"]
+CROPS = ["Maize", "Millet", "Sorghum"]
+FIGURES = [
+    ("01_harvest_price_crash.png", "The harvest price crash",
+     "Every harvest, prices fall to their floor as grain floods the market. This is the problem we exist to solve — and the reason 'when you sell' matters as much as 'what you grow'."),
+    ("04_data_coverage.png", "What our data does and doesn't cover",
+     "Our WFP VAM price series runs through 2023. We show this openly: it's the single fact behind why live advice uses a seasonal model, not the raw ML."),
+    ("03_market_comparison.png", "Prices move differently across markets",
+     "Tamale, Techiman, Bolgatanga and beyond don't move in lockstep — which is why recommendations are computed per market, not nationally."),
+    ("05_fx_vs_price.png", "Currency shocks move food prices",
+     "The cedi–dollar rate tracks cereal prices closely. That's why exchange rate is a feature in the model, not an afterthought."),
+]
+FALLBACK = [
+    {"district": d, "crop": c, "decision": "SELL_NOW", "net_total": n, "current_price": p, "forecast_price": round(p*0.92, 2)}
+    for d in DISTRICTS
+    for c, p, n in [("Maize", 538.46, -925.6), ("Millet", 728.0, -1230.0), ("Sorghum", 741.2, -1250.0)]
+]
+ML_PROBS = [("Maize · Tamale", 96, 2, 2), ("Millet · Kumbungu", 88, 6, 6), ("Sorghum · Tamale", 90, 8, 2)]
 
-# ── STYLES ────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-  html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-  }
-
-  /* hide default streamlit header */
-  #MainMenu, footer, header { visibility: hidden; }
-
-  /* page background */
-  .stApp { background-color: #F0F4F8; }
-
-  /* sidebar */
-  section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0D2137 0%, #1A3A5C 100%);
-    border-right: none;
-  }
-  section[data-testid="stSidebar"] * { color: #E8F4FD !important; }
-  section[data-testid="stSidebar"] .stSelectbox label { color: #9FC5E8 !important; }
-
-  /* metric cards */
-  .metric-card {
-    background: white;
-    border-radius: 12px;
-    padding: 20px 24px;
-    border-left: 4px solid #1A9DAA;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    margin-bottom: 16px;
-  }
-  .metric-card.green  { border-left-color: #00A878; }
-  .metric-card.amber  { border-left-color: #E8940A; }
-  .metric-card.red    { border-left-color: #C0392B; }
-  .metric-card.navy   { border-left-color: #0D2137; }
-
-  .metric-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #6B7280;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-  }
-  .metric-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: #0D2137;
-    line-height: 1.1;
-  }
-  .metric-sub {
-    font-size: 13px;
-    color: #9CA3AF;
-    margin-top: 4px;
-  }
-
-  /* decision badges */
-  .badge-store   { background:#E6F9F4; color:#00A878; border:1px solid #00A878; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
-  .badge-partial { background:#FEF3E2; color:#E8940A; border:1px solid #E8940A; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
-  .badge-sell    { background:#FEEAEA; color:#C0392B; border:1px solid #C0392B; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
-
-  /* storage card */
-  .storage-card {
-    background: white;
-    border-radius: 10px;
-    padding: 16px 20px;
-    border: 1px solid #E5E7EB;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  }
-  .storage-name { font-size:15px; font-weight:700; color:#0D2137; }
-  .storage-meta { font-size:13px; color:#6B7280; margin-top:4px; }
-  .storage-contact { font-size:13px; font-weight:600; color:#1A9DAA; margin-top:6px; }
-
-  /* section headers */
-  .section-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #0D2137;
-    margin-bottom: 4px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #E5E7EB;
-  }
-  .section-sub {
-    font-size: 13px;
-    color: #6B7280;
-    margin-bottom: 20px;
-  }
-
-  /* top header bar */
-  .top-header {
-    background: linear-gradient(135deg, #0D2137 0%, #1A3A5C 60%, #1A9DAA 100%);
-    border-radius: 12px;
-    padding: 24px 32px;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .top-header-title {
-    font-size: 26px;
-    font-weight: 700;
-    color: white;
-    margin: 0;
-  }
-  .top-header-sub {
-    font-size: 13px;
-    color: #9FC5E8;
-    margin-top: 4px;
-  }
-  .top-header-badge {
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 20px;
-    padding: 6px 16px;
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  /* table styling */
-  .dataframe { font-size: 13px !important; }
-
-  /* alert box */
-  .alert-box {
-    background: #EAF7FA;
-    border-left: 4px solid #1A9DAA;
-    border-radius: 6px;
-    padding: 12px 16px;
-    font-size: 13px;
-    color: #0D2137;
-    margin-bottom: 16px;
-  }
-
-  /* wfp paragraph box */
-  .wfp-box {
-    background: linear-gradient(135deg, #0D2137, #1A3A5C);
-    border-radius: 12px;
-    padding: 24px 28px;
-    color: white;
-    font-size: 14px;
-    line-height: 1.7;
-    font-style: italic;
-    margin-top: 16px;
-  }
-</style>
-""", unsafe_allow_html=True)
-
-# ── HELPERS ───────────────────────────────────────────────────────
-def api_get(path: str, timeout: int = 15):
+@st.cache_data(ttl=120, show_spinner=False)
+def load_summary(month=None):
     try:
-        r = requests.get(f"{API_URL}{path}", timeout=timeout)
+        r = requests.get(SUMMARY_ENDPOINT, params=({"month": month} if month else None), timeout=TIMEOUT)
         r.raise_for_status()
-        return r.json()
-    except Exception as e:
-        return None
+        rows = r.json().get("summary", [])
+        return (rows, "live") if rows else (FALLBACK, "offline")
+    except Exception:
+        return FALLBACK, "offline"
 
-def api_post(path: str, data: dict, timeout: int = 20):
+
+@st.cache_data(ttl=30, show_spinner=False)
+def load_activity():
     try:
-        r = requests.post(f"{API_URL}{path}", json=data, timeout=timeout)
+        r = requests.get(ACTIVITY_ENDPOINT, timeout=TIMEOUT)
         r.raise_for_status()
-        return r.json()
-    except Exception as e:
-        return None
+        return r.json(), "live"
+    except Exception:
+        return None, "offline"
 
-def decision_badge(decision: str) -> str:
-    if decision == "STORE":
-        return '<span class="badge-store">STORE</span>'
-    elif decision == "SELL_PARTIAL":
-        return '<span class="badge-partial">SELL PARTIAL</span>'
-    elif decision == "SELL_NOW":
-        return '<span class="badge-sell">SELL NOW</span>'
-    return f'<span>{decision}</span>'
 
-def fmt_ghs(val) -> str:
-    if val is None:
-        return "—"
-    return f"GHS {val:,.0f}"
+@st.cache_data(ttl=120, show_spinner=False)
+def load_storage(district, crop):
+    try:
+        r = requests.get(f"{STORAGE_ENDPOINT}/{district}/{crop}", timeout=TIMEOUT)
+        r.raise_for_status()
+        return r.json(), "live"
+    except Exception:
+        return None, "offline"
 
-# ── SIDEBAR ───────────────────────────────────────────────────────
+
+def fig_path(name):
+    p = os.path.join(FIG_DIR, name)
+    return p if os.path.exists(p) else None
+
+
+st.set_page_config(page_title="PostHarvest IQ", page_icon="🌾", layout="wide")
+st.markdown(f"""<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Outfit:wght@300;400;500;600&display=swap');
+.stApp {{ background:{INK}; }}
+.block-container {{ padding-top:2rem; max-width:1180px; }}
+html,body,[class*="css"] {{ font-family:'Outfit',sans-serif; color:{CREAM}; }}
+h1,h2,h3 {{ font-family:'Fraunces',serif !important; color:{CREAM} !important; letter-spacing:-.5px; }}
+h1 {{ font-weight:900 !important; }}
+section[data-testid="stSidebar"] {{ background:{PANEL}; border-right:1px solid #2E2820; }}
+section[data-testid="stSidebar"] * {{ color:{CREAM}; }}
+.hero {{ background:linear-gradient(135deg,{PANEL} 0%,#2A2318 100%); border:1px solid #332B20; border-left:4px solid {GOLD}; border-radius:14px; padding:1.8rem 2.1rem; margin-bottom:1.4rem; }}
+.hero h1 {{ font-size:2.5rem; margin:0 0 .25rem 0; }}
+.hero p {{ color:{GRAIN}; font-size:1.05rem; margin:0; }}
+.statcard {{ background:{PANEL}; border:1px solid #2E2820; border-radius:12px; padding:1.1rem 1.3rem; height:100%; }}
+.statcard .num {{ font-family:'Fraunces',serif; font-size:2rem; font-weight:900; color:{GOLD}; line-height:1; }}
+.statcard .lab {{ color:{MUTE}; font-size:.8rem; margin-top:.4rem; }}
+.panel {{ background:{PANEL}; border:1px solid #2E2820; border-radius:12px; padding:1.3rem 1.5rem; margin-bottom:1rem; }}
+.scard {{ background:{PANEL}; border:1px solid #2E2820; border-left:4px solid {GOLD}; border-radius:12px; padding:1.1rem 1.3rem; margin-bottom:.8rem; }}
+.pill {{ display:inline-block; padding:3px 12px; border-radius:20px; font-size:.78rem; font-weight:600; color:#fff; }}
+.tag {{ display:inline-block; padding:2px 10px; border-radius:6px; font-size:.72rem; background:#332B20; color:{GRAIN}; margin-left:8px; }}
+.quote {{ font-family:'Fraunces',serif; font-style:italic; font-size:1.25rem; color:{GRAIN}; border-left:3px solid {GOLD}; padding-left:1rem; margin:1.1rem 0; }}
+.feedrow {{ display:flex; align-items:center; justify-content:space-between; padding:.7rem 1rem; border-bottom:1px solid #2A241C; }}
+.feedrow:last-child {{ border-bottom:none; }}
+.dot {{ height:8px; width:8px; border-radius:50%; display:inline-block; margin-right:8px; }}
+.cap {{ color:{MUTE}; font-size:.9rem; margin:.2rem 0 1.4rem 0; }}
+hr {{ border-color:#2E2820; }}
+</style>""", unsafe_allow_html=True)
+
+
+def stat(num, lab): return f"<div class='statcard'><div class='num'>{num}</div><div class='lab'>{lab}</div></div>"
+def badge(d):
+    c, l = DEC.get(d, DEC["UNAVAILABLE"]); return f"<span class='pill' style='background:{c}'>{l}</span>"
+def cedis(v):
+    try: return f"GHS {round(float(v)):,}"
+    except (TypeError, ValueError): return "—"
+def ago(iso):
+    if not iso: return "—"
+    try:
+        t = _dt.datetime.fromisoformat(iso.replace("Z", "+00:00")).replace(tzinfo=None)
+        s = (_dt.datetime.utcnow() - t).total_seconds()
+        if s < 60: return "just now"
+        if s < 3600: return f"{int(s//60)}m ago"
+        if s < 86400: return f"{int(s//3600)}h ago"
+        return f"{int(s//86400)}d ago"
+    except Exception:
+        return "recently"
+
+
 with st.sidebar:
-    st.markdown("## 🌾 PostHarvest IQ")
-    st.markdown("**WFP Code4FoodSecurity 2026**")
-    st.markdown("---")
+    st.markdown("<h2 style='font-size:1.5rem;margin-bottom:0'>🌾 PostHarvest IQ</h2>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:{MUTE};font-size:.8rem;margin-top:.2rem'>The sell-or-store call,<br>for any farmer with a phone.</p>", unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
+    page = st.radio("Navigate",
+        ["Live Activity", "Recommendations", "Price & Season", "Findings", "Storage", "The Model", "Alignment"],
+        label_visibility="collapsed")
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:{GRAIN};font-size:.7rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.3rem'>Coverage</p>"
+                f"<p style='color:{MUTE};font-size:.78rem;margin-top:0'>3 crops &nbsp;·&nbsp; Maize, Millet, Sorghum<br>4 districts · Sagnarigu, Tolon, Kumbungu, Tamale</p>", unsafe_allow_html=True)
 
-    page = st.radio(
-        "Navigation",
-        ["📊 Overview", "🔮 Price Forecast", "🏪 Storage Locations", "📋 Recommendations Log", "ℹ️ About"],
-        label_visibility="collapsed"
-    )
 
-    st.markdown("---")
-    st.markdown("**Filters**")
-
-    district = st.selectbox(
-        "District",
-        ["Tamale", "Sagnarigu", "Tolon", "Kumbungu"],
-        index=0
-    )
-
-    crop = st.selectbox(
-        "Crop",
-        ["Maize", "Millet", "Sorghum"],
-        index=0
-    )
-
-    quantity = st.slider("Quantity (bags)", 5, 100, 20, 5)
-
-    st.markdown("---")
-    st.markdown(f"**API:** `{API_URL}`")
-    st.markdown(f"**USSD:** `*384*33939#`")
-    st.markdown(f"**Updated:** {datetime.now().strftime('%d %b %Y %H:%M')}")
-
-# ── TOP HEADER ────────────────────────────────────────────────────
-st.markdown(f"""
-<div class="top-header">
-  <div>
-    <p class="top-header-title">🌾 PostHarvest IQ</p>
-    <p class="top-header-sub">WFP Officer Intelligence Dashboard · {district} · {crop}</p>
-  </div>
-  <span class="top-header-badge">WFP Code4FoodSecurity 2026</span>
-</div>
-""", unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════
-# PAGE: OVERVIEW
-# ══════════════════════════════════════════════════════════════════
-if page == "📊 Overview":
-
-    # ── Live recommendation ──────────────────────────────────────
-    with st.spinner(f"Getting recommendation for {district} {crop}..."):
-        rec = api_post("/recommendations/", {
-            "crop": crop,
-            "district": district,
-            "quantity_bags": quantity,
-            "language": "en"
-        })
-
-    if rec:
-        decision = rec.get("decision", "—")
-        current  = rec.get("current_price", 0)
-        forecast = rec.get("forecast_price", 0)
-        gain     = rec.get("expected_gain", 0)
-        net_bag  = rec.get("net_per_bag", 0)
-        net_tot  = rec.get("net_total", 0)
-        storage  = rec.get("storage")
-        method   = rec.get("method", "seasonal_estimate")
-
-        # Top metrics
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            color = "green" if decision == "STORE" else "amber" if decision == "SELL_PARTIAL" else "red"
-            st.markdown(f"""
-            <div class="metric-card {color}">
-              <div class="metric-label">Recommendation</div>
-              <div class="metric-value">{decision.replace("_"," ")}</div>
-              <div class="metric-sub">{district} · {crop}</div>
-            </div>""", unsafe_allow_html=True)
-
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card navy">
-              <div class="metric-label">Current Market Price</div>
-              <div class="metric-value">{fmt_ghs(current)}</div>
-              <div class="metric-sub">per 100kg bag · Wholesale</div>
-            </div>""", unsafe_allow_html=True)
-
-        with col3:
-            st.markdown(f"""
-            <div class="metric-card">
-              <div class="metric-label">Forecast Price</div>
-              <div class="metric-value">{fmt_ghs(forecast)}</div>
-              <div class="metric-sub">Expected next month</div>
-            </div>""", unsafe_allow_html=True)
-
-        with col4:
-            st.markdown(f"""
-            <div class="metric-card green">
-              <div class="metric-label">Net Gain ({quantity} bags)</div>
-              <div class="metric-value">{fmt_ghs(net_tot)}</div>
-              <div class="metric-sub">After storage & transport costs</div>
-            </div>""", unsafe_allow_html=True)
-
-        # Net return breakdown
-        st.markdown("---")
-        col_left, col_right = st.columns([1, 1])
-
-        with col_left:
-            st.markdown('<p class="section-title">Net Return Calculation</p>', unsafe_allow_html=True)
-            st.markdown('<p class="section-sub">How PostHarvest IQ calculates the farmer recommendation</p>', unsafe_allow_html=True)
-
-            fig = go.Figure(go.Waterfall(
-                orientation="v",
-                measure=["absolute", "relative", "relative", "relative", "total"],
-                x=["Forecast Price", "− Current Price", "− Storage Cost", "− Transport", "Net per Bag"],
-                y=[forecast, -current, -1.20, -2.00, 0],
-                connector={"line": {"color": "#E5E7EB"}},
-                decreasing={"marker": {"color": "#C0392B"}},
-                increasing={"marker": {"color": "#00A878"}},
-                totals={"marker": {"color": "#1A9DAA"}},
-                text=[fmt_ghs(forecast), fmt_ghs(-current), "GHS 1.20", "GHS 2.00", fmt_ghs(net_bag)],
-                textposition="outside",
-            ))
-            fig.update_layout(
-                height=320,
-                margin=dict(l=0, r=0, t=20, b=0),
-                plot_bgcolor="white",
-                paper_bgcolor="white",
-                font=dict(family="DM Sans", size=12),
-                showlegend=False,
-                yaxis=dict(showgrid=True, gridcolor="#F3F4F6", zeroline=True, zerolinecolor="#E5E7EB"),
-                xaxis=dict(showgrid=False),
-            )
+if page == "Live Activity":
+    st.markdown("""<div class='hero'><h1>Live activity</h1>
+    <p>Every farmer session lands here: crop, district, the decision we gave, and when.</p></div>""", unsafe_allow_html=True)
+    data, src = load_activity()
+    top = st.columns([3, 1])
+    with top[1]:
+        if st.button("↻ Refresh"):
+            st.cache_data.clear(); st.rerun()
+    if data and data.get("total_sessions", 0) > 0:
+        with top[0]:
+            st.success(f"Live from the database · {_dt.datetime.now():%H:%M:%S}")
+        c = st.columns(4)
+        c[0].markdown(stat(data["total_sessions"], "decisions delivered"), unsafe_allow_html=True)
+        c[1].markdown(stat(data["unique_farmers"], "farmers reached"), unsafe_allow_html=True)
+        c[2].markdown(stat(data.get("by_decision", {}).get("SELL_NOW", 0), "told to sell"), unsafe_allow_html=True)
+        c[3].markdown(stat(data.get("by_decision", {}).get("STORE", 0), "told to store"), unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### As it happens")
+        feed = "".join(
+            f"<div class='feedrow'><div><span class='dot' style='background:{DEC.get(r['decision'],DEC['UNAVAILABLE'])[0]}'></span>"
+            f"<b>{r['crop']}</b> · {r['district']} <span style='color:{MUTE}'>· {r['phone']}</span></div>"
+            f"<div>{badge(r['decision'])} <span style='color:{MUTE};font-size:.8rem;margin-left:8px'>{ago(r['when'])}</span></div></div>"
+            for r in data.get("recent", []))
+        empty_msg = "<p style='padding:1rem'>No sessions yet.</p>"
+        st.markdown(f"<div class='panel' style='padding:.3rem 0'>{feed or empty_msg}</div>", unsafe_allow_html=True)
+        bc = data.get("by_crop", {})
+        if bc:
+            st.markdown("### What they're asking about")
+            fig = go.Figure(go.Bar(x=list(bc.keys()), y=list(bc.values()), marker_color=GOLD))
+            fig.update_layout(plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM, height=300, margin=dict(t=20, b=30), showlegend=False)
+            fig.update_xaxes(gridcolor="#2E2820"); fig.update_yaxes(gridcolor="#2E2820")
             st.plotly_chart(fig, use_container_width=True)
-
-            st.markdown(f"""
-            <div class="alert-box">
-              <strong>Formula:</strong> Forecast Price − Current Price − Storage Cost (GHS 0.80 × 1.5 months) − Transport (GHS 2.00) = <strong>{fmt_ghs(net_bag)} per bag</strong><br>
-              <strong>For {quantity} bags:</strong> {fmt_ghs(net_bag)} × {quantity} = <strong>{fmt_ghs(net_tot)}</strong><br>
-              <strong>Forecast method:</strong> {method.replace("_", " ").title()}
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col_right:
-            st.markdown('<p class="section-title">Nearest Storage Location</p>', unsafe_allow_html=True)
-            st.markdown('<p class="section-sub">GPS-matched verified GCX warehouse</p>', unsafe_allow_html=True)
-
-            if storage:
-                st.markdown(f"""
-                <div class="storage-card">
-                  <div class="storage-name">🏪 {storage['name']}</div>
-                  <div class="storage-meta">
-                    📍 {storage['distance_km']} km from {district} district centre<br>
-                    💰 GHS {storage['cost_per_bag']}/bag/month (Ghana Commodity Exchange rate)<br>
-                    🌾 Accepts: Maize, Sorghum<br>
-                    ✅ Verified · Active
-                  </div>
-                  <div class="storage-contact">📞 {storage['contact_number']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # Map
-                st.markdown("**Warehouse Location**")
-                warehouse_coords = {
-                    "GCX Tamale Warehouse":   (9.4034, -0.8424),
-                    "GCX Bolga Warehouse":    (10.7833, -0.8500),
-                    "GCX Sandema Warehouse":  (10.8566, -1.2553),
-                    "GCX Wa Warehouse":       (10.0601, -2.5099),
-                    "GCX Tumu Warehouse":     (10.9000, -1.9833),
-                }
-                district_coords = {
-                    "Tamale":    (9.40, -0.83),
-                    "Sagnarigu": (9.45, -0.88),
-                    "Tolon":     (9.45, -1.00),
-                    "Kumbungu":  (9.56, -0.95),
-                }
-
-                wh_name = storage['name']
-                wh_lat, wh_lng = warehouse_coords.get(wh_name, (9.40, -0.83))
-                d_lat, d_lng   = district_coords.get(district, (9.40, -0.83))
-
-                map_df = pd.DataFrame([
-                    {"name": district + " (Farmer)", "lat": d_lat, "lon": d_lng, "type": "Farmer"},
-                    {"name": wh_name, "lat": wh_lat, "lon": wh_lng, "type": "Warehouse"},
-                ])
-
-                fig_map = px.scatter_mapbox(
-                    map_df, lat="lat", lon="lon",
-                    color="type",
-                    color_discrete_map={"Farmer": "#1A9DAA", "Warehouse": "#00A878"},
-                    hover_name="name",
-                    zoom=9, height=220,
-                    size_max=15,
-                )
-                fig_map.update_layout(
-                    mapbox_style="carto-positron",
-                    margin=dict(l=0, r=0, t=0, b=0),
-                    legend=dict(orientation="h", y=1, x=0),
-                )
-                st.plotly_chart(fig_map, use_container_width=True)
-            else:
-                st.warning("No verified storage found for this crop and district. Contact MoFA: 118")
-
     else:
-        st.error("Could not reach the PostHarvest IQ API. Check your connection.")
+        with top[0]:
+            st.warning("No live sessions yet — dial the USSD code to see one appear here.")
+        st.markdown(f"<div class='panel'>This feed fills the moment farmers start using the service. Every USSD session writes a row — crop, district, the decision we gave, the cedi figure — and it shows up here in seconds. <b style='color:{GOLD}'>Dial in during the demo and watch it land.</b></div>", unsafe_allow_html=True)
 
-    # ── District summary table ───────────────────────────────────
-    st.markdown("---")
-    st.markdown('<p class="section-title">All District Recommendations</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-sub">Current sell-or-store recommendation for all districts and crops</p>', unsafe_allow_html=True)
 
-    with st.spinner("Loading district summary..."):
-        summary = api_get("/dashboard/summary")
-
-    if summary and "summary" in summary:
-        rows = summary["summary"]
-        df_sum = pd.DataFrame(rows)
-
-        def style_decision(val):
-            if val == "STORE":
-                return "background-color: #E6F9F4; color: #00A878; font-weight: 600"
-            elif val == "SELL_PARTIAL":
-                return "background-color: #FEF3E2; color: #E8940A; font-weight: 600"
-            elif val == "SELL_NOW":
-                return "background-color: #FEEAEA; color: #C0392B; font-weight: 600"
-            return ""
-
-        df_display = df_sum.copy()
-        df_display.columns = ["District", "Crop", "Decision", "Net Gain (GHS)", "Forecast Price", "Current Price"]
-        df_display["Net Gain (GHS)"] = df_display["Net Gain (GHS)"].apply(lambda x: f"GHS {x:,.0f}" if x else "—")
-        df_display["Forecast Price"] = df_display["Forecast Price"].apply(lambda x: f"GHS {x:,.0f}" if x else "—")
-        df_display["Current Price"]  = df_display["Current Price"].apply(lambda x: f"GHS {x:,.0f}" if x else "—")
-
-        styled = df_display.style.applymap(style_decision, subset=["Decision"])
-        st.dataframe(styled, use_container_width=True, height=400)
-    else:
-        st.warning("Could not load district summary.")
-
-# ══════════════════════════════════════════════════════════════════
-# PAGE: PRICE FORECAST
-# ══════════════════════════════════════════════════════════════════
-elif page == "🔮 Price Forecast":
-
-    st.markdown('<p class="section-title">Price Forecast & Historical Trends</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-sub">WFP VAM price data 2006-2023 · Seasonal pattern analysis · Northern Ghana cereals</p>', unsafe_allow_html=True)
-
-    # Load forecast
-    with st.spinner("Loading forecast..."):
-        forecast_data = api_get(f"/forecasts/{district}/{crop}")
-
-    if forecast_data and "forecast" in forecast_data:
-        f = forecast_data["forecast"]
-        current  = f.get("current_price", 0)
-        forecast = f.get("forecast_price", 0)
-        method   = f.get("method", "seasonal_estimate")
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card navy">
-              <div class="metric-label">Current Price</div>
-              <div class="metric-value">{fmt_ghs(current)}</div>
-              <div class="metric-sub">Latest WFP VAM reading</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card green">
-              <div class="metric-label">Forecast Price</div>
-              <div class="metric-value">{fmt_ghs(forecast)}</div>
-              <div class="metric-sub">Next month estimate</div>
-            </div>""", unsafe_allow_html=True)
-        with col3:
-            gain = forecast - current if forecast and current else 0
-            st.markdown(f"""
-            <div class="metric-card">
-              <div class="metric-label">Expected Gain/Bag</div>
-              <div class="metric-value">{fmt_ghs(gain)}</div>
-              <div class="metric-sub">Method: {method.replace("_"," ").title()}</div>
-            </div>""", unsafe_allow_html=True)
-
-    # EDA charts from notebooks/figures/
-    st.markdown("---")
-    st.markdown("### Historical Price Analysis")
-    st.caption("Source: WFP VAM Ghana · 2006-2023 · Tamale, Bolga, Wa wholesale prices")
-
-    figures_path = "notebooks/figures"
-    chart_files = {
-        "01_harvest_price_crash.png": "Harvest Season Price Crash — October floor and January recovery",
-        "02_longrun_price_trends.png": "Long-run Price Trends 2006-2023 — 18 years of cereal price history",
-        "03_market_comparison.png": "Market Comparison — Tamale, Bolga, Wa price correlation",
-        "05_fx_vs_price.png": "Exchange Rate vs Price — Cedi depreciation impact on cereal prices",
-        "06_correlation_matrix.png": "Feature Correlation Matrix — Model input relationships",
-    }
-
-    available = []
-    for fname, title in chart_files.items():
-        fpath = os.path.join(figures_path, fname)
-        if os.path.exists(fpath):
-            available.append((fpath, title))
-
-    if available:
-        for i in range(0, len(available), 2):
-            cols = st.columns(2)
-            for j, col in enumerate(cols):
-                if i + j < len(available):
-                    fpath, title = available[i + j]
-                    with col:
-                        st.image(fpath, caption=title, use_column_width=True)
-    else:
-        st.info("EDA charts not found locally. Run the notebook to generate them.")
-        st.markdown("""
-        **Seasonal Pattern (documented):**
-        - October harvest: prices crash to annual floor
-        - November-December: prices remain low as supply floods markets
-        - January-February: lean season begins — prices recover 40-60%
-        - March-September: prices rise steadily until next harvest
-
-        This 18-year pattern is the foundation of the PostHarvest IQ recommendation.
-        """)
-
-    # Seasonal pattern chart (always shown)
-    st.markdown("---")
-    st.markdown("### Documented Seasonal Price Pattern — Northern Ghana Cereals")
-
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    seasonal_index = [1.35, 1.40, 1.38, 1.30, 1.20, 1.10,
-                      1.05, 1.00, 0.95, 0.75, 0.70, 0.80]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=months, y=[v * 100 for v in seasonal_index],
-        mode="lines+markers",
-        line=dict(color="#1A9DAA", width=3),
-        marker=dict(size=8, color="#1A9DAA"),
-        fill="tozeroy",
-        fillcolor="rgba(26,157,170,0.1)",
-        name="Price Index (Oct=100%)",
-    ))
-    fig.add_vrect(x0="Oct", x1="Dec", fillcolor="#C0392B", opacity=0.08,
-                  annotation_text="Harvest Season", annotation_position="top left")
-    fig.add_vrect(x0="Jan", x1="Mar", fillcolor="#00A878", opacity=0.08,
-                  annotation_text="Lean Season Peak", annotation_position="top left")
-    fig.add_hline(y=100, line_dash="dash", line_color="#E5E7EB",
-                  annotation_text="October baseline")
-    fig.update_layout(
-        height=350,
-        margin=dict(l=0, r=0, t=30, b=0),
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        font=dict(family="DM Sans", size=12),
-        yaxis=dict(title="Price Index (%)", showgrid=True, gridcolor="#F3F4F6"),
-        xaxis=dict(showgrid=False),
-        legend=dict(orientation="h", y=1.1),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption("Based on 18 years of WFP VAM wholesale price data for Tamale, Bolga, and Wa markets. "
-               "The October harvest crash and January lean-season recovery repeat consistently every year. "
-               "A farmer who stores at harvest and sells in January captures 40-60% additional income.")
-
-# ══════════════════════════════════════════════════════════════════
-# PAGE: STORAGE LOCATIONS
-# ══════════════════════════════════════════════════════════════════
-elif page == "🏪 Storage Locations":
-
-    st.markdown('<p class="section-title">Verified Storage Locations</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-sub">Ghana Commodity Exchange verified warehouses · GPS matched by Haversine formula</p>', unsafe_allow_html=True)
-
-    with st.spinner("Loading storage locations..."):
-        storage_data = api_get(f"/storage/{district}/{crop}")
-
-    if storage_data and "storage_locations" in storage_data:
-        locations = storage_data["storage_locations"]
-
-        if locations:
-            st.success(f"Found {len(locations)} verified storage locations near {district} for {crop}")
-
-            # Map of all locations
-            all_locs = api_get(f"/storage/Tamale/Maize")
-            if all_locs and "storage_locations" in all_locs:
-                all_locations = all_locs["storage_locations"]
-
-                warehouse_coords = {
-                    "GCX Tamale Warehouse":   (9.4034, -0.8424),
-                    "GCX Bolga Warehouse":    (10.7833, -0.8500),
-                    "GCX Sandema Warehouse":  (10.8566, -1.2553),
-                    "GCX Wa Warehouse":       (10.0601, -2.5099),
-                    "GCX Tumu Warehouse":     (10.9000, -1.9833),
-                }
-
-                map_rows = []
-                for loc in all_locs["storage_locations"]:
-                    lat, lng = warehouse_coords.get(loc['name'], (9.40, -0.83))
-                    map_rows.append({
-                        "name": loc['name'],
-                        "lat": lat,
-                        "lon": lng,
-                        "cost": loc['cost_per_bag'],
-                        "contact": loc['contact_number'],
-                    })
-
-                df_map = pd.DataFrame(map_rows)
-                fig_map = px.scatter_mapbox(
-                    df_map, lat="lat", lon="lon",
-                    hover_name="name",
-                    hover_data={"cost": True, "contact": True},
-                    color_discrete_sequence=["#00A878"],
-                    zoom=6, height=350,
-                    size_max=15,
-                )
-                fig_map.update_layout(
-                    mapbox_style="carto-positron",
-                    margin=dict(l=0, r=0, t=0, b=0),
-                )
-                st.plotly_chart(fig_map, use_container_width=True)
-
-            # Location cards
-            for i, loc in enumerate(locations):
-                rank = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
-                st.markdown(f"""
-                <div class="storage-card">
-                  <div class="storage-name">{rank} {loc['name']}</div>
-                  <div class="storage-meta">
-                    📍 <strong>{loc['distance_km']} km</strong> from {district} district centre<br>
-                    💰 <strong>GHS {loc['cost_per_bag']}/bag/month</strong> · Ghana Commodity Exchange rate<br>
-                    🌾 Accepts: Maize, Sorghum · Minimum: 20 bags<br>
-                    ✅ Verified · Active
-                  </div>
-                  <div class="storage-contact">📞 {loc['contact_number']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
+elif page == "Recommendations":
+    st.markdown("# Recommendations given")
+    st.markdown(f"<p style='color:{MUTE}'>What the tool tells a farmer for every crop in every district. Switch months to see the advice change with the season.</p>", unsafe_allow_html=True)
+    sel = st.selectbox("Show me:", MONTHS, index=0,
+        help="Defaults to live. Pick a month to watch the advice flip across the season — same engine, different time of year.")
+    month = None if sel == CURRENT_LABEL else MONTHS.index(sel)
+    rows, src = load_summary(month)
+    df = pd.DataFrame(rows)
+    a, b = st.columns([3, 1])
+    with a:
+        lab = CURRENT_LABEL if month is None else MONTHS[month]
+        if src == "live":
+            st.success(f"Live · {lab} · {_dt.datetime.now():%H:%M:%S}")
         else:
-            st.warning(f"No verified storage found for {crop} near {district}.")
-            st.info("Note: GCX warehouses currently accept Maize and Sorghum only. "
-                    "Millet storage expansion is planned for Phase 2. "
-                    "Contact MoFA Tamale on 118 for Millet storage options.")
+            st.warning("Sample snapshot — API unreachable.")
+    with b:
+        if st.button("↻ Refresh"):
+            st.cache_data.clear(); st.rerun()
+    if not df.empty and "decision" in df:
+        m = st.columns(4)
+        m[0].markdown(stat(len(df), "crop × district pairs"), unsafe_allow_html=True)
+        m[1].markdown(stat(int((df.decision == "STORE").sum()), "store"), unsafe_allow_html=True)
+        m[2].markdown(stat(int((df.decision == "SELL_NOW").sum()), "sell now"), unsafe_allow_html=True)
+        m[3].markdown(stat(int((df.decision == "SELL_PARTIAL").sum()), "sell half"), unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        rows_html = "".join(
+            f"<tr><td style='padding:9px 12px'>{r.district}</td><td style='padding:9px 12px'>{r.crop}</td>"
+            f"<td style='padding:9px 12px'>{badge(r.decision)}</td>"
+            f"<td style='padding:9px 12px;text-align:right'>{cedis(r.get('current_price'))}</td>"
+            f"<td style='padding:9px 12px;text-align:right'>{cedis(r.get('forecast_price'))}</td>"
+            f"<td style='padding:9px 12px;text-align:right;color:{GREEN if (r.get('net_total') or 0)>0 else RED}'>{cedis(r.get('net_total'))}</td></tr>"
+            for _, r in df.iterrows())
+        st.markdown(f"""<div class='panel'><table style='width:100%;border-collapse:collapse'>
+        <thead><tr style='border-bottom:2px solid {GOLD};text-align:left;color:{GRAIN}'>
+        <th style='padding:9px 12px'>District</th><th style='padding:9px 12px'>Crop</th><th style='padding:9px 12px'>Call</th>
+        <th style='padding:9px 12px;text-align:right'>Today</th><th style='padding:9px 12px;text-align:right'>Forecast</th>
+        <th style='padding:9px 12px;text-align:right'>Net (20 bags)</th></tr></thead><tbody>{rows_html}</tbody></table></div>""", unsafe_allow_html=True)
+        st.caption("Net = gain or loss on 20 bags after storage cost. Red means storing loses money, so we say sell.")
+
+
+elif page == "Price & Season":
+    st.markdown("# Same crop. Opposite advice.")
+    st.markdown(f"<p style='color:{MUTE}'>When you sell matters as much as what you grow. Here's the pattern the whole tool turns on.</p>", unsafe_allow_html=True)
+    names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    y = [UPLIFT[m] for m in range(1, 13)]
+    cols = [GREEN if v > 2 else (RED if v < -2 else MUTE) for v in y]
+    fig = go.Figure(go.Bar(x=names, y=y, marker_color=cols, text=[f"{v:+d}%" for v in y], textposition="outside"))
+    fig.update_layout(title="Where prices go next, month by month", plot_bgcolor=PANEL, paper_bgcolor=PANEL,
+        font_color=CREAM, height=400, margin=dict(t=60, b=40), yaxis_title="Expected price change", showlegend=False)
+    fig.update_xaxes(gridcolor="#2E2820"); fig.update_yaxes(gridcolor="#2E2820", zerolinecolor=GOLD)
+    st.plotly_chart(fig, use_container_width=True)
+    cc = st.columns(2)
+    cc[0].markdown(f"<div class='panel'><b style='color:{RED}'>Lean season · Jun–Aug</b><br>Grain is scarce, prices near the top. Storing just burns money you don't need to spend. So we say <b>sell</b>.</div>", unsafe_allow_html=True)
+    cc[1].markdown(f"<div class='panel'><b style='color:{GREEN}'>Harvest · Oct–Dec</b><br>The market floods, prices hit the floor, the climb back is coming. Hold on and it pays. So we say <b>store</b>.</div>", unsafe_allow_html=True)
+    st.markdown(f"<p class='quote'>A price alert tells a farmer what maize costs. We tell him/her what to do about it.</p>", unsafe_allow_html=True)
+
+
+elif page == "Findings":
+    st.markdown("# What the data told us")
+    st.markdown(f"<p style='color:{MUTE}'>Before we wrote a line of product code, we studied 17 years of Northern Ghana cereal prices. A few findings shaped everything.</p>", unsafe_allow_html=True)
+    shown = 0
+    for fname, title, caption in FIGURES:
+        p = fig_path(fname)
+        if p:
+            st.markdown(f"### {title}")
+            st.image(p, use_container_width=True)
+            st.markdown(f"<p class='cap'>{caption}</p>", unsafe_allow_html=True)
+            shown += 1
+    if shown == 0:
+        st.markdown(f"<div class='panel'>Analysis figures load from <code>notebooks/figures/</code>. Make sure that folder is committed to the repo so the gallery renders here.</div>", unsafe_allow_html=True)
+
+
+elif page == "Storage":
+    st.markdown("# Available storage")
+    st.markdown(f"<p style='color:{MUTE}'>The verified warehouses in our registry. A 'store' recommendation only holds if there's somewhere to store.</p>", unsafe_allow_html=True)
+    f1, f2 = st.columns(2)
+    d = f1.selectbox("District", DISTRICTS, index=DISTRICTS.index("Tamale"))
+    c = f2.selectbox("Crop", CROPS)
+    data, src = load_storage(d, c)
+    locs = []
+    if isinstance(data, list):
+        locs = data
+    elif isinstance(data, dict):
+        locs = data.get("storage_locations") or data.get("locations") or data.get("storage") or []
+    if locs:
+        try:
+            locs = sorted(locs, key=lambda x: float(x.get("distance_km", 9e9)))
+        except Exception:
+            pass
+        st.markdown(f"<p style='color:{MUTE};margin-bottom:1rem'>{len(locs)} verified "
+                    f"warehouse{'s' if len(locs)!=1 else ''} that accept {c}, nearest first.</p>",
+                    unsafe_allow_html=True)
+        for loc in locs:
+            name = loc.get("name", "Warehouse")
+            org = loc.get("type", "")
+            town = loc.get("district", "")
+            contact = loc.get("contact_number", loc.get("contact", "—"))
+            try: dist = f"{float(loc.get('distance_km')):.0f} km away"
+            except (TypeError, ValueError): dist = ""
+            try: cost = f"GHS {float(loc.get('cost_per_bag')):.2f} per bag / month"
+            except (TypeError, ValueError): cost = ""
+            loc_line = f"{town} · {cost}" if (town and cost) else (town or cost)
+            st.markdown(f"""<div class='scard'>
+            <b style='font-size:1.1rem'>{name}</b> <span class='tag'>{dist}</span><br>
+            <span style='color:{GRAIN}'>{loc_line}</span><br>
+            <span style='color:{GOLD};font-weight:600'>☎ {contact}</span>
+            <span style='color:{MUTE};font-size:.8rem'> · {org}</span></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class='panel' style='border-left:4px solid {AMBER};margin-top:1rem'>
+        <b style='color:{AMBER}'>Why this matters</b><br>
+        Every verified warehouse we could find belongs to one body — the Ghana Commodity Exchange —
+        and they take only maize and sorghum. So beyond the storage shortage itself, there's a
+        <b>visibility gap</b>: even where storage exists, farmers often don't know it is there or how to reach it.
+        Putting a real name, distance and phone number in a farmer's hand is part of what this tool fixes.</div>""", unsafe_allow_html=True)
     else:
-        st.error("Could not load storage data.")
+        st.markdown(f"""<div class='panel' style='border-left:4px solid {AMBER}'>
+        <b style='color:{AMBER}'>No verified storage for {c} near {d}.</b><br>
+        We don't invent a warehouse that isn't there. For {c}, selling is likely the better call — and
+        closing this gap is a defined next step. <span style='color:{MUTE}'>(The Ghana Commodity Exchange
+        warehouses we mapped accept maize and sorghum, not millet — and they're the only verified
+        storage we could find, which is a visibility gap in itself.)</span></div>""", unsafe_allow_html=True)
 
-    # GCX info
-    st.markdown("---")
-    st.markdown("### About Ghana Commodity Exchange Warehouses")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card green">
-          <div class="metric-label">Storage Cost</div>
-          <div class="metric-value">GHS 0.80</div>
-          <div class="metric-sub">per bag per month</div>
-        </div>""", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-          <div class="metric-label">Minimum Quantity</div>
-          <div class="metric-value">20 bags</div>
-          <div class="metric-sub">per deposit (1 metric tonne)</div>
-        </div>""", unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card navy">
-          <div class="metric-label">Verified Locations</div>
-          <div class="metric-value">5</div>
-          <div class="metric-sub">Tamale · Bolga · Wa · Tumu · Sandema</div>
-        </div>""", unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════
-# PAGE: RECOMMENDATIONS LOG
-# ══════════════════════════════════════════════════════════════════
-elif page == "📋 Recommendations Log":
+elif page == "The Model":
+    st.markdown("# We built the model. We also know its blind spot.")
+    st.markdown(f"<p style='color:{MUTE}'>Both of those are worth saying out loud.</p>", unsafe_allow_html=True)
+    st.markdown(f"<div class='panel'>The <b>XGBoost classifier</b> trained on price lags, rolling stats, exchange rates, producer prices and seasonal signals. It runs live in the background. Here's what it predicts for three scenarios:</div>", unsafe_allow_html=True)
+    labels = [p[0] for p in ML_PROBS]
+    fig = go.Figure()
+    fig.add_bar(name="Sell now", x=labels, y=[p[1] for p in ML_PROBS], marker_color=RED)
+    fig.add_bar(name="Sell half", x=labels, y=[p[2] for p in ML_PROBS], marker_color=AMBER)
+    fig.add_bar(name="Store", x=labels, y=[p[3] for p in ML_PROBS], marker_color=GREEN)
+    fig.update_layout(barmode="stack", title="What the model is sure of (%)", plot_bgcolor=PANEL, paper_bgcolor=PANEL,
+        font_color=CREAM, height=380, margin=dict(t=60, b=40))
+    fig.update_xaxes(gridcolor="#2E2820"); fig.update_yaxes(gridcolor="#2E2820")
+    st.plotly_chart(fig, use_container_width=True)
+    p = fig_path("class_distribution.png")
+    if p:
+        st.markdown("### What it trained on")
+        st.image(p, use_container_width=True)
+        st.markdown(f"<p class='cap'>The decision classes in our training data — useful context for reading the confidence scores above.</p>", unsafe_allow_html=True)
+    st.markdown(f"""<div class='panel' style='border-left:4px solid {GOLD}'><b style='color:{GOLD}'>The point of showing you this</b><br>
+    The model says <b>sell at 88 to 96% confidence for everything</b>, even in harvest season when storing is obviously right. That is not a glitch. It learned from data ending at the 2023 peak, so it thinks prices only ever fall. That's exactly why we don't let it drive a farmer's decision, and exactly why fresh data is our number-one ask. Knowing where your model is wrong, and saying so with a number attached, is the difference between a tool and a black box.</div>""", unsafe_allow_html=True)
 
-    st.markdown('<p class="section-title">Farmer Recommendations Log</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-sub">Every USSD session is logged here for WFP monitoring and impact tracking</p>', unsafe_allow_html=True)
 
-    st.markdown("""
-    <div class="alert-box">
-      Every time a farmer dials <strong>*384*33939#</strong> and completes the flow,
-      their recommendation is anonymously logged here. Phone numbers are stored for
-      session tracking only — no personal data is retained beyond the recommendation outcome.
-      This data feeds WFP's impact monitoring for the P4P programme.
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Simulate recent sessions for demo
-    demo_data = [
-        {"Session": "demo_001", "Crop": "Maize",   "District": "Tamale",    "Decision": "STORE",        "Net Gain": "GHS 2,628", "Time": "Today 09:14"},
-        {"Session": "demo_002", "Crop": "Millet",  "District": "Sagnarigu", "Decision": "STORE",        "Net Gain": "GHS 3,420", "Time": "Today 09:31"},
-        {"Session": "demo_003", "Crop": "Sorghum", "District": "Tolon",     "Decision": "STORE",        "Net Gain": "GHS 3,486", "Time": "Today 10:02"},
-        {"Session": "demo_004", "Crop": "Maize",   "District": "Kumbungu",  "Decision": "SELL_PARTIAL", "Net Gain": "GHS 580",   "Time": "Today 10:45"},
-        {"Session": "demo_005", "Crop": "Maize",   "District": "Tamale",    "Decision": "STORE",        "Net Gain": "GHS 2,628", "Time": "Today 11:20"},
+elif page == "Alignment":
+    st.markdown("# Why this matters")
+    st.markdown(f"<p style='color:{MUTE}'>Every recommendation in PostHarvest IQ is designed around one goal: helping farmers make better selling decisions and keep more value from their harvest.</p>", unsafe_allow_html=True)
+    sdgs = [
+        ("SDG 2 · Zero Hunger", "Targets 2.3 & 2.c", GOLD,
+         "By helping farmers identify more favourable selling periods, PostHarvest IQ aims to improve returns from existing harvests, contributing to higher agricultural incomes. Better-informed selling decisions may also help ease the pressure that builds when large volumes enter the market all at once after harvest."),
+        ("SDG 1 · No Poverty", "Target 1.1", GREEN,
+         "The net-return figure gives farmers a clearer picture of whether a sale is likely to profit after storage and transport costs, supporting more informed income decisions."),
+        ("SDG 9 · Innovation & Infrastructure", "Target 9.c", GRAIN,
+         "Delivered through USSD, the tool is accessible on basic mobile phones, no internet or smartphone required."),
+        ("SDG 10 · Reduced Inequalities", "Target 10.2", "#7FA6C9",
+         "By prioritising feature phones and local-language access, the platform reaches farmers who are often excluded from digital agricultural services."),
     ]
-
-    df_log = pd.DataFrame(demo_data)
-
-    def style_log(val):
-        if val == "STORE":
-            return "background-color:#E6F9F4; color:#00A878; font-weight:600"
-        elif val == "SELL_PARTIAL":
-            return "background-color:#FEF3E2; color:#E8940A; font-weight:600"
-        elif val == "SELL_NOW":
-            return "background-color:#FEEAEA; color:#C0392B; font-weight:600"
-        return ""
-
-    st.dataframe(
-        df_log.style.applymap(style_log, subset=["Decision"]),
-        use_container_width=True
-    )
-
-    st.caption("Demo data shown. Live recommendations are logged to MySQL recommendations table on Railway.")
-
-    # Impact metrics
-    st.markdown("---")
-    st.markdown("### Projected Impact — Year 1")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card green">
-          <div class="metric-label">Target Farmers</div>
-          <div class="metric-value">2,000</div>
-          <div class="metric-sub">Year 1 · 3 districts</div>
-        </div>""", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-          <div class="metric-label">Avg. Net Gain</div>
-          <div class="metric-value">GHS 800</div>
-          <div class="metric-sub">per farmer per season</div>
-        </div>""", unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card navy">
-          <div class="metric-label">Community Income</div>
-          <div class="metric-value">GHS 1.6M</div>
-          <div class="metric-sub">recovered per season</div>
-        </div>""", unsafe_allow_html=True)
-    with col4:
-        st.markdown(f"""
-        <div class="metric-card amber">
-          <div class="metric-label">SDG Target</div>
-          <div class="metric-value">2.3</div>
-          <div class="metric-sub">Double smallholder incomes</div>
-        </div>""", unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════
-# PAGE: ABOUT
-# ══════════════════════════════════════════════════════════════════
-elif page == "ℹ️ About":
-
-    st.markdown('<p class="section-title">About PostHarvest IQ</p>', unsafe_allow_html=True)
-
-    col1, col2 = st.columns([3, 2])
-
-    with col1:
-        st.markdown("""
-        **PostHarvest IQ** is a USSD-based agricultural decision intelligence system
-        that tells a smallholder cereal farmer in Northern Ghana whether to sell her
-        crop today or store and wait — with the exact net return in Ghana cedis and
-        the nearest verified storage location — delivered to any mobile phone on any
-        Ghanaian network in under two minutes.
-
-        ### How It Works
-        1. **Farmer dials** `*384*33939#` on any phone
-        2. **Selects** language (English / Dagbani / Hausa)
-        3. **Selects** crop (Maize / Millet / Sorghum)
-        4. **Selects** district (Sagnarigu / Tolon / Kumbungu / Tamale)
-        5. **Receives** STORE / SELL NOW / SELL PARTIAL with net GHS figure
-        6. **Action** — nearest GCX warehouse or nearest market
-
-        ### The Technology
-        - **Price forecasting:** Seasonal estimate based on 18-year WFP VAM pattern
-        - **Decision classifier:** XGBoost trained on Northern Ghana cereal price history
-        - **Storage matching:** Haversine GPS formula → nearest verified GCX warehouse
-        - **Language layer:** English, Dagbani, Hausa
-        - **API:** FastAPI deployed on Render
-        - **Database:** MySQL on Railway with 6 verified datasets
-        """)
-
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card navy">
-          <div class="metric-label">Production URL</div>
-          <div class="metric-value" style="font-size:14px; font-family:'DM Mono'">postharvest-iq.onrender.com</div>
-          <div class="metric-sub">FastAPI · Always on</div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-label">USSD Code</div>
-          <div class="metric-value">*384*33939#</div>
-          <div class="metric-sub">Africa's Talking sandbox</div>
-        </div>
-
-        <div class="metric-card green">
-          <div class="metric-label">Training Data</div>
-          <div class="metric-value">1,744 rows</div>
-          <div class="metric-sub">WFP VAM · 2006-2023 · 18 years</div>
-        </div>
-
-        <div class="metric-card amber">
-          <div class="metric-label">Storage Locations</div>
-          <div class="metric-value">5 verified</div>
-          <div class="metric-sub">Ghana Commodity Exchange</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown("### WFP Strategic Alignment")
-
-    st.markdown("""
-    <div class="wfp-box">
-      PostHarvest IQ advances SDG 2 Target 2.3 by recovering GHS 500 to 1,200 of
-      smallholder farmer income per season through one better decision at harvest time.
-      It serves WFP Ghana's Country Strategic Plan 2024-2028 Outcome 3 by building
-      financial resilience for the farmers most vulnerable to price shocks. It strengthens
-      WFP's Purchase for Progress programme by incentivising the storage behaviour that
-      produces better quality grain. And it trains entirely on WFP VAM data — turning an
-      investment WFP has already made into farmer-facing decision intelligence for the first time.
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown("### Datasets Used")
-
-    datasets = [
-        ["WFP VAM Food Prices Ghana", "26,254 rows", "Primary LSTM training data", "data.humdata.org"],
-        ["WFP Market Registry Ghana", "93 markets", "GPS coordinates for distance matching", "data.humdata.org"],
-        ["Ghana Exchange Rates", "785 rows", "Macro signal — separates inflation from seasonal", "fao.org/faostat"],
-        ["Ghana Producer Prices", "5,696 rows", "Farm gate price signal", "fao.org/faostat"],
-        ["Language Use Admin1", "139 rows", "Language distribution by region", "clearglobal.org"],
-        ["Language Use Admin2", "423 rows", "Language distribution by district", "clearglobal.org"],
-    ]
-
-    df_data = pd.DataFrame(datasets, columns=["Dataset", "Records", "Purpose", "Source"])
-    st.dataframe(df_data, use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-    st.caption("PostHarvest IQ · Blossom Academy · WFP Code4FoodSecurity Fellowship 2026 · Presentation: 11 June 2026")
+    for title, tgt, col, body in sdgs:
+        st.markdown(f"""<div class='panel' style='border-left:4px solid {col}'>
+        <b style='color:{col};font-size:1.05rem'>{title}</b><span class='tag'>{tgt}</span><br>
+        <span>{body}</span></div>""", unsafe_allow_html=True)
+    st.markdown("### Built on WFP's existing investments")
+    st.markdown(f"""<div class='panel'>
+    PostHarvest IQ builds on the market intelligence WFP already collects through its
+    <b style='color:{GOLD}'>VAM price monitoring</b>. Rather than creating a new data-collection programme,
+    it transforms existing market information into practical guidance a farmer can use when deciding
+    whether to sell now or store.</div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class='panel'>
+    The concept aligns with WFP's <b>Country Strategic Plan 2024–2028</b>, particularly its focus on
+    resilient livelihoods and smallholder support, and complements initiatives such as
+    <b>Purchase for Progress</b> by encouraging informed post-harvest decisions and better grain management.</div>""", unsafe_allow_html=True)
