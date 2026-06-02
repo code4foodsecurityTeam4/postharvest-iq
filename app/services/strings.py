@@ -76,81 +76,80 @@ STRINGS = {
     # the English value of the same key above.
     # ---------------------------------------------------------------
     "dag": {
-        "welcome":        "TODO",
-        "select_crop":    "TODO",
+        "welcome":        "Ni kpem PostHarvest IQ",
+        "select_crop":    "Yuli ni fo ŋun dali:",
         "maize":          "Masara",
-        "millet":         "TODO",
-        "sorghum":        "TODO",
-        "select_dist":    "TODO",
-
+        "millet":         "Daawa",
+        "sorghum":        "Chiŋ",
+        "select_dist":    "Yuli ni fo ŋun distrik:",
+ 
         "store":          "KPAGI ni masara",
-        "sell_now":       "TODO",
-        "sell_partial":   "TODO",
-
-        "earn_per_bag":   "TODO",   # keep {gain}
-        "total_for_bags": "TODO",   # keep {bags} and {net}
-        "after_cost":     "TODO",
-        "sell_advice":    "TODO",
-        "sell_now_price": "TODO",   # keep {price}
-        "sell_now_total": "TODO",   # keep {bags} and {total}
-
-        "nearest":        "TODO",
-        "store_location": "TODO",   # keep {town} and {km}
-        "cost_per_month": "TODO",   # keep {cost}
+        "sell_now":       "NYƐƐRI SAHA YIN",
+        "sell_partial":   "NYƐƐRI BAARIGI, KPAGI BAARIGI",
+ 
+        "earn_per_bag":   "Fo na bɔri GHS {gain} paɣa baŋ mali kpagi",
+        "total_for_bags": "Bagi {bags} kpeŋ: GHS {net}",
+        "after_cost":     "(kpagim toɣo ti bɔri)",
+        "sell_advice":    "Nyɛɛri daa bee nyaŋa. A mali kpagi a nyɛɛri a yɛla bia.",
+        "sell_now_price": "GHS {price} baŋ kpem",
+        "sell_now_total": "Bagi {bags} = GHS {total} yini",
+ 
+        "nearest":        "Kpagili ti kpɛŋ",
+        "store_location": "{town}, {km} km",
+        "cost_per_month": "Toɣo: GHS {cost} baŋ kpem kodili",
         "call":           "Sɔŋ",
-        "price_today":    "TODO",   # keep {price}
-        "nearest_market": "TODO",   # keep {town} and {km}
-
-        "sell_n_now":     "TODO",   # keep {bags} and {amount}
-        "store_n_est":    "TODO",   # keep {bags} and {net}
-
-        "no_storage":     "TODO",
-        "consider_sell":  "TODO",
-        "call_mofa":      "TODO",
-        "thanks":         "TODO",
-        "unavailable":    "TODO",
-        "invalid":        "TODO",
+        "price_today":    "Nyɛɛri daa: GHS {price} baŋ",
+        "nearest_market": "Zaŋ ti kpɛŋ: {town}, {km} km",
+ 
+        "sell_n_now":     "Nyɛɛri bagi {bags} yini: GHS {amount}",
+        "store_n_est":    "Kpagi bagi {bags}: GHS {net} paɣa",
+ 
+        "no_storage":     "Kpagili ka bo ni fo ŋun dali kɔŋ.",
+        "consider_sell":  "Nyɛɛri ni bee fo nyaŋa yɛla.",
+        "call_mofa":      "Sɔŋ MoFA: 118",
+        "thanks":         "Ti wuhibi fo PostHarvest IQ ni.",
+        "unavailable":    "Sɛrvisi mali doli. Gbɛ saha.",
+        "invalid":        "Fo yuli ka nɔŋ. Gbɛ saha.",
     },
 
     # ---------------------------------------------------------------
-    # HAUSA — translator: replace every "TODO" with the Hausa for the
-    # English value of the same key above.
+    # HAUSA 
     # ---------------------------------------------------------------
     "hau": {
-        "welcome":        "TODO",
+        "welcome":        "Barka da zuwa PostHarvest IQ",
         "select_crop":    "Zaɓi amfanin gona:",
         "maize":          "Masara",
-        "millet":         "TODO",
-        "sorghum":        "TODO",
+        "millet":         "Gero",
+        "sorghum":        "Dawa",
         "select_dist":    "Zaɓi gundumar:",
-
+ 
         "store":          "ADANA masararka",
-        "sell_now":       "TODO",
-        "sell_partial":   "TODO",
-
-        "earn_per_bag":   "TODO",   # keep {gain}
-        "total_for_bags": "TODO",   # keep {bags} and {net}
-        "after_cost":     "TODO",
-        "sell_advice":    "TODO",
-        "sell_now_price": "TODO",   # keep {price}
-        "sell_now_total": "TODO",   # keep {bags} and {total}
-
+        "sell_now":       "SAYAR YANZU",
+        "sell_partial":   "SAYAR RABI, ADANA RABI",
+ 
+        "earn_per_bag":   "Za ka sami GHS {gain} ƙari a buhu idan ka adana",
+        "total_for_bags": "Jimlar buhu {bags}: GHS {net}",
+        "after_cost":     "(bayan kuɗin adanawa)",
+        "sell_advice":    "Farashin ya yi yawa yanzu. Jira na iya rage kuɗinka.",
+        "sell_now_price": "GHS {price} a kowace buhu",
+        "sell_now_total": "Buhu {bags} = GHS {total} yau",
+ 
         "nearest":        "Kusa",
-        "store_location": "TODO",   # keep {town} and {km}
-        "cost_per_month": "TODO",   # keep {cost}
+        "store_location": "{town}, nesa {km} km",
+        "cost_per_month": "Kuɗi: GHS {cost} a buhu a wata",
         "call":           "Kira",
-        "price_today":    "TODO",   # keep {price}
-        "nearest_market": "TODO",   # keep {town} and {km}
-
-        "sell_n_now":     "TODO",   # keep {bags} and {amount}
-        "store_n_est":    "TODO",   # keep {bags} and {net}
-
-        "no_storage":     "TODO",
-        "consider_sell":  "TODO",
-        "call_mofa":      "TODO",
-        "thanks":         "TODO",
-        "unavailable":    "TODO",
-        "invalid":        "TODO",
+        "price_today":    "Farashi yau: GHS {price} a buhu",
+        "nearest_market": "Kasuwa mafi kusa: {town}, {km} km",
+ 
+        "sell_n_now":     "Sayar buhu {bags} yanzu: GHS {amount}",
+        "store_n_est":    "Adana buhu {bags}: kusan GHS {net} ƙari",
+ 
+        "no_storage":     "Ba a sami wurin adanawa kusa ba.",
+        "consider_sell":  "Sayarwa na iya zama mafi kyau a gare ka.",
+        "call_mofa":      "Kira MoFA: 118",
+        "thanks":         "Na gode da amfani da PostHarvest IQ.",
+        "unavailable":    "Sabis ɗin yana da cunkoso. Da fatan sake gwadawa.",
+        "invalid":        "Zaɓin ba daidai ba ne. Da fatan sake gwadawa.",
     },
 }
 
