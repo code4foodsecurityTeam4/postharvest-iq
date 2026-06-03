@@ -56,11 +56,17 @@ STRINGS = {
         "cost_per_month": "Cost: GHS {cost} per bag each month",
         "call":           "Call",
         "price_today":    "Price today: GHS {price} per bag",
-        "nearest_market": "Nearest market: {town}, {km} km",
+        "nearest_market": "Nearest market: {town}",
 
         # Partial action
         "sell_n_now":     "Sell {bags} bags now: GHS {amount}",
         "store_n_est":    "Store {bags} bags: about GHS {net} more",
+
+        # Action menu (shown after recommendation)
+        "menu_find_storage": "Find storage",
+        "menu_sell_all":     "Sell all now",
+        "menu_sell_half":    "Sell half store half",
+        "menu_exit":         "Exit",
 
         # No-storage / fallback (e.g. millet, which GCX does not store)
         "no_storage":     "No store found nearby for this crop.",
@@ -99,11 +105,16 @@ STRINGS = {
         "cost_per_month": "Toɣo: GHS {cost} baŋ kpem kodili",
         "call":           "Sɔŋ",
         "price_today":    "Nyɛɛri daa: GHS {price} baŋ",
-        "nearest_market": "Zaŋ ti kpɛŋ: {town}, {km} km",
+        "nearest_market": "Zaŋ ti kpɛŋ: {town}",
  
         "sell_n_now":     "Nyɛɛri bagi {bags} yini: GHS {amount}",
         "store_n_est":    "Kpagi bagi {bags}: GHS {net} paɣa",
  
+        "menu_find_storage": "Nyɛ kpagili",
+        "menu_sell_all":     "Nyɛɛri fɔŋ yini",
+        "menu_sell_half":    "Nyɛɛri baarigi, kpagi baarigi",
+        "menu_exit":         "Bua",
+
         "no_storage":     "Kpagili ka bo ni fo ŋun dali kɔŋ.",
         "consider_sell":  "Nyɛɛri ni bee fo nyaŋa yɛla.",
         "call_mofa":      "Sɔŋ MoFA: 118",
@@ -139,11 +150,16 @@ STRINGS = {
         "cost_per_month": "Kuɗi: GHS {cost} a buhu a wata",
         "call":           "Kira",
         "price_today":    "Farashi yau: GHS {price} a buhu",
-        "nearest_market": "Kasuwa mafi kusa: {town}, {km} km",
+        "nearest_market": "Kasuwa mafi kusa: {town}",
  
         "sell_n_now":     "Sayar buhu {bags} yanzu: GHS {amount}",
         "store_n_est":    "Adana buhu {bags}: kusan GHS {net} ƙari",
  
+        "menu_find_storage": "Nemo wurin ajiya",
+        "menu_sell_all":     "Sayar duk yanzu",
+        "menu_sell_half":    "Sayar rabi, adana rabi",
+        "menu_exit":         "Fita",
+
         "no_storage":     "Ba a sami wurin adanawa kusa ba.",
         "consider_sell":  "Sayarwa na iya zama mafi kyau a gare ka.",
         "call_mofa":      "Kira MoFA: 118",

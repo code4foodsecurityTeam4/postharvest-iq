@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.services.strings import STRINGS, t
+from app.services.strings import t
 from app.services import ml_service, storage_service
 
 CROPS = {
@@ -112,10 +112,10 @@ def handle_ussd_session(
             )
 
             menu = (
-                "1. Find storage\n"
-                "2. Sell all now\n"
-                "3. Sell half store half\n"
-                "4. Exit"
+                f"1. {t(lang, 'menu_find_storage')}\n"
+                f"2. {t(lang, 'menu_sell_all')}\n"
+                f"3. {t(lang, 'menu_sell_half')}\n"
+                f"4. {t(lang, 'menu_exit')}"
             )
 
             if decision == "STORE":
@@ -179,15 +179,10 @@ def handle_ussd_session(
                 market = storage_service.get_nearest_market(
                     district=district, db=db
                 )
-                rec = ml_service.get_recommendation(
-                    crop=crop, district=district,
-                    quantity_bags=DEFAULT_QTY, db=db, month=demo_month,
-                )
-                km_str = f"{market.get('distance_km', 0):.0f}"
                 town = market.get("name", "Tamale")
                 return (
                     f"END {t(lang, 'sell_now')}\n"
-                    f"{t(lang, 'nearest_market').format(town=town, km=km_str)}"
+                    f"{t(lang, 'nearest_market').format(town=town)}"
                 )
             except Exception:
                 return f"END {t(lang, 'sell_now')}"

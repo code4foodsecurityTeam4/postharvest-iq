@@ -2,7 +2,6 @@
 dashboard/streamlit_app.py — PostHarvest IQ
 """
 
-import os
 import datetime as _dt
 import pandas as pd
 import plotly.graph_objects as go
@@ -14,7 +13,6 @@ SUMMARY_ENDPOINT = f"{API_BASE}/dashboard/summary"
 ACTIVITY_ENDPOINT = f"{API_BASE}/recommendations/activity"
 STORAGE_ENDPOINT = f"{API_BASE}/storage"
 TIMEOUT = 20
-FIG_DIR = os.path.join(os.path.dirname(__file__), "..", "notebooks", "figures")
 
 INK, PANEL = "#14110E", "#1E1A15"
 GOLD, GRAIN, CREAM, MUTE = "#E8A33D", "#D4B483", "#F2E9DC", "#9C8F7A"
@@ -25,25 +23,13 @@ _NOW = _dt.datetime.now()
 CURRENT_LABEL = f"{_NOW:%B %Y} (current)"
 MONTHS = [CURRENT_LABEL, "January", "February", "March", "April", "May",
           "June", "July", "August", "September", "October", "November", "December"]
-UPLIFT = {1: 5, 2: 3, 3: 0, 4: -3, 5: -5, 6: -8, 7: -8, 8: -5, 9: 8, 10: 22, 11: 20, 12: 12}
 DISTRICTS = ["Sagnarigu", "Tolon", "Kumbungu", "Tamale"]
 CROPS = ["Maize", "Millet", "Sorghum"]
-FIGURES = [
-    ("01_harvest_price_crash.png", "The harvest price crash",
-     "Every harvest, prices fall to their floor as grain floods the market. This is the problem we exist to solve — and the reason 'when you sell' matters as much as 'what you grow'."),
-    ("04_data_coverage.png", "What our data does and doesn't cover",
-     "Our WFP VAM price series runs through 2023. We show this openly: it's the single fact behind why live advice uses a seasonal model, not the raw ML."),
-    ("03_market_comparison.png", "Prices move differently across markets",
-     "Tamale, Techiman, Bolgatanga and beyond don't move in lockstep — which is why recommendations are computed per market, not nationally."),
-    ("05_fx_vs_price.png", "Currency shocks move food prices",
-     "The cedi–dollar rate tracks cereal prices closely. That's why exchange rate is a feature in the model, not an afterthought."),
-]
 FALLBACK = [
     {"district": d, "crop": c, "decision": "SELL_NOW", "net_total": n, "current_price": p, "forecast_price": round(p*0.92, 2)}
     for d in DISTRICTS
     for c, p, n in [("Maize", 538.46, -925.6), ("Millet", 728.0, -1230.0), ("Sorghum", 741.2, -1250.0)]
 ]
-ML_PROBS = [("Maize · Tamale", 96, 2, 2), ("Millet · Kumbungu", 88, 6, 6), ("Sorghum · Tamale", 90, 8, 2)]
 
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -77,11 +63,6 @@ def load_storage(district, crop):
         return None, "offline"
 
 
-def fig_path(name):
-    p = os.path.join(FIG_DIR, name)
-    return p if os.path.exists(p) else None
-
-
 st.set_page_config(page_title="PostHarvest IQ", page_icon="🌾", layout="wide")
 st.markdown(f"""<style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Outfit:wght@300;400;500;600&display=swap');
@@ -103,7 +84,7 @@ section[data-testid="stSidebar"] * {{ color:{CREAM}; }}
 .pill {{ display:inline-block; padding:3px 12px; border-radius:20px; font-size:.78rem; font-weight:600; color:#fff; }}
 .tag {{ display:inline-block; padding:2px 10px; border-radius:6px; font-size:.72rem; background:#332B20; color:{GRAIN}; margin-left:8px; }}
 .quote {{ font-family:'Fraunces',serif; font-style:italic; font-size:1.25rem; color:{GRAIN}; border-left:3px solid {GOLD}; padding-left:1rem; margin:1.1rem 0; }}
-.feedrow {{ display:flex; align-items:center; justify-content:space-between; padding:.7rem 1rem; border-bottom:1px solid #2A241C; }}
+.feedrow {{ display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:1rem; padding:.7rem 1rem; border-bottom:1px solid #2A241C; }}
 .feedrow:last-child {{ border-bottom:none; }}
 .dot {{ height:8px; width:8px; border-radius:50%; display:inline-block; margin-right:8px; }}
 .cap {{ color:{MUTE}; font-size:.9rem; margin:.2rem 0 1.4rem 0; }}
@@ -121,7 +102,7 @@ def ago(iso):
     if not iso: return "—"
     try:
         t = _dt.datetime.fromisoformat(iso.replace("Z", "+00:00")).replace(tzinfo=None)
-        s = (_dt.datetime.utcnow() - t).total_seconds()
+        s = (_dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None) - t).total_seconds()
         if s < 60: return "just now"
         if s < 3600: return f"{int(s//60)}m ago"
         if s < 86400: return f"{int(s//3600)}h ago"
@@ -134,15 +115,13 @@ with st.sidebar:
     st.markdown("<h2 style='font-size:1.5rem;margin-bottom:0'>🌾 PostHarvest IQ</h2>", unsafe_allow_html=True)
     st.markdown(f"<p style='color:{MUTE};font-size:.8rem;margin-top:.2rem'>The sell-or-store call,<br>for any farmer with a phone.</p>", unsafe_allow_html=True)
     st.markdown("<hr>", unsafe_allow_html=True)
-    page = st.radio("Navigate",
-        ["Live Activity", "Recommendations", "Price & Season", "Findings", "Storage", "The Model", "Alignment"],
-        label_visibility="collapsed")
-    st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown(f"<p style='color:{GRAIN};font-size:.7rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.3rem'>Coverage</p>"
                 f"<p style='color:{MUTE};font-size:.78rem;margin-top:0'>3 crops &nbsp;·&nbsp; Maize, Millet, Sorghum<br>4 districts · Sagnarigu, Tolon, Kumbungu, Tamale</p>", unsafe_allow_html=True)
 
 
-if page == "Live Activity":
+tab1, tab2, tab3, tab4 = st.tabs(["Live Activity", "Recommendations", "Storage", "Alignment"])
+
+with tab1:
     st.markdown("""<div class='hero'><h1>Live activity</h1>
     <p>Every farmer session lands here: crop, district, the decision we gave, and when.</p></div>""", unsafe_allow_html=True)
     data, src = load_activity()
@@ -162,7 +141,8 @@ if page == "Live Activity":
         st.markdown("### As it happens")
         feed = "".join(
             f"<div class='feedrow'><div><span class='dot' style='background:{DEC.get(r['decision'],DEC['UNAVAILABLE'])[0]}'></span>"
-            f"<b>{r['crop']}</b> · {r['district']} <span style='color:{MUTE}'>· {r['phone']}</span></div>"
+            f"<b>{r['crop']}</b> · {r['district']}</div>"
+            f"<div style='color:{MUTE};font-size:.85rem'>{r['phone']}</div>"
             f"<div>{badge(r['decision'])} <span style='color:{MUTE};font-size:.8rem;margin-left:8px'>{ago(r['when'])}</span></div></div>"
             for r in data.get("recent", []))
         empty_msg = "<p style='padding:1rem'>No sessions yet.</p>"
@@ -180,7 +160,7 @@ if page == "Live Activity":
         st.markdown(f"<div class='panel'>This feed fills the moment farmers start using the service. Every USSD session writes a row — crop, district, the decision we gave, the cedi figure — and it shows up here in seconds. <b style='color:{GOLD}'>Dial in during the demo and watch it land.</b></div>", unsafe_allow_html=True)
 
 
-elif page == "Recommendations":
+with tab2:
     st.markdown("# Recommendations given")
     st.markdown(f"<p style='color:{MUTE}'>What the tool tells a farmer for every crop in every district. Switch months to see the advice change with the season.</p>", unsafe_allow_html=True)
     sel = st.selectbox("Show me:", MONTHS, index=0,
@@ -196,7 +176,7 @@ elif page == "Recommendations":
         else:
             st.warning("Sample snapshot — API unreachable.")
     with b:
-        if st.button("↻ Refresh"):
+        if st.button("↻ Refresh", key="rec_refresh"):
             st.cache_data.clear(); st.rerun()
     if not df.empty and "decision" in df:
         m = st.columns(4)
@@ -220,39 +200,7 @@ elif page == "Recommendations":
         st.caption("Net = gain or loss on 20 bags after storage cost. Red means storing loses money, so we say sell.")
 
 
-elif page == "Price & Season":
-    st.markdown("# Same crop. Opposite advice.")
-    st.markdown(f"<p style='color:{MUTE}'>When you sell matters as much as what you grow. Here's the pattern the whole tool turns on.</p>", unsafe_allow_html=True)
-    names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-    y = [UPLIFT[m] for m in range(1, 13)]
-    cols = [GREEN if v > 2 else (RED if v < -2 else MUTE) for v in y]
-    fig = go.Figure(go.Bar(x=names, y=y, marker_color=cols, text=[f"{v:+d}%" for v in y], textposition="outside"))
-    fig.update_layout(title="Where prices go next, month by month", plot_bgcolor=PANEL, paper_bgcolor=PANEL,
-        font_color=CREAM, height=400, margin=dict(t=60, b=40), yaxis_title="Expected price change", showlegend=False)
-    fig.update_xaxes(gridcolor="#2E2820"); fig.update_yaxes(gridcolor="#2E2820", zerolinecolor=GOLD)
-    st.plotly_chart(fig, use_container_width=True)
-    cc = st.columns(2)
-    cc[0].markdown(f"<div class='panel'><b style='color:{RED}'>Lean season · Jun–Aug</b><br>Grain is scarce, prices near the top. Storing just burns money you don't need to spend. So we say <b>sell</b>.</div>", unsafe_allow_html=True)
-    cc[1].markdown(f"<div class='panel'><b style='color:{GREEN}'>Harvest · Oct–Dec</b><br>The market floods, prices hit the floor, the climb back is coming. Hold on and it pays. So we say <b>store</b>.</div>", unsafe_allow_html=True)
-    st.markdown(f"<p class='quote'>A price alert tells a farmer what maize costs. We tell him/her what to do about it.</p>", unsafe_allow_html=True)
-
-
-elif page == "Findings":
-    st.markdown("# What the data told us")
-    st.markdown(f"<p style='color:{MUTE}'>Before we wrote a line of product code, we studied 17 years of Northern Ghana cereal prices. A few findings shaped everything.</p>", unsafe_allow_html=True)
-    shown = 0
-    for fname, title, caption in FIGURES:
-        p = fig_path(fname)
-        if p:
-            st.markdown(f"### {title}")
-            st.image(p, use_container_width=True)
-            st.markdown(f"<p class='cap'>{caption}</p>", unsafe_allow_html=True)
-            shown += 1
-    if shown == 0:
-        st.markdown(f"<div class='panel'>Analysis figures load from <code>notebooks/figures/</code>. Make sure that folder is committed to the repo so the gallery renders here.</div>", unsafe_allow_html=True)
-
-
-elif page == "Storage":
+with tab3:
     st.markdown("# Available storage")
     st.markdown(f"<p style='color:{MUTE}'>The verified warehouses in our registry. A 'store' recommendation only holds if there's somewhere to store.</p>", unsafe_allow_html=True)
     f1, f2 = st.columns(2)
@@ -302,29 +250,7 @@ elif page == "Storage":
         storage we could find, which is a visibility gap in itself.)</span></div>""", unsafe_allow_html=True)
 
 
-elif page == "The Model":
-    st.markdown("# We built the model. We also know its blind spot.")
-    st.markdown(f"<p style='color:{MUTE}'>Both of those are worth saying out loud.</p>", unsafe_allow_html=True)
-    st.markdown(f"<div class='panel'>The <b>XGBoost classifier</b> trained on price lags, rolling stats, exchange rates, producer prices and seasonal signals. It runs live in the background. Here's what it predicts for three scenarios:</div>", unsafe_allow_html=True)
-    labels = [p[0] for p in ML_PROBS]
-    fig = go.Figure()
-    fig.add_bar(name="Sell now", x=labels, y=[p[1] for p in ML_PROBS], marker_color=RED)
-    fig.add_bar(name="Sell half", x=labels, y=[p[2] for p in ML_PROBS], marker_color=AMBER)
-    fig.add_bar(name="Store", x=labels, y=[p[3] for p in ML_PROBS], marker_color=GREEN)
-    fig.update_layout(barmode="stack", title="What the model is sure of (%)", plot_bgcolor=PANEL, paper_bgcolor=PANEL,
-        font_color=CREAM, height=380, margin=dict(t=60, b=40))
-    fig.update_xaxes(gridcolor="#2E2820"); fig.update_yaxes(gridcolor="#2E2820")
-    st.plotly_chart(fig, use_container_width=True)
-    p = fig_path("class_distribution.png")
-    if p:
-        st.markdown("### What it trained on")
-        st.image(p, use_container_width=True)
-        st.markdown(f"<p class='cap'>The decision classes in our training data — useful context for reading the confidence scores above.</p>", unsafe_allow_html=True)
-    st.markdown(f"""<div class='panel' style='border-left:4px solid {GOLD}'><b style='color:{GOLD}'>The point of showing you this</b><br>
-    The model says <b>sell at 88 to 96% confidence for everything</b>, even in harvest season when storing is obviously right. That is not a glitch. It learned from data ending at the 2023 peak, so it thinks prices only ever fall. That's exactly why we don't let it drive a farmer's decision, and exactly why fresh data is our number-one ask. Knowing where your model is wrong, and saying so with a number attached, is the difference between a tool and a black box.</div>""", unsafe_allow_html=True)
-
-
-elif page == "Alignment":
+with tab4:
     st.markdown("# Why this matters")
     st.markdown(f"<p style='color:{MUTE}'>Every recommendation in PostHarvest IQ is designed around one goal: helping farmers make better selling decisions and keep more value from their harvest.</p>", unsafe_allow_html=True)
     sdgs = [
