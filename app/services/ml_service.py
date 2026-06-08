@@ -1,7 +1,3 @@
-"""
-app/services/ml_service.py
-"""
-
 import math
 import numpy as np
 import pandas as pd
@@ -23,9 +19,8 @@ MARKET_FOR_DISTRICT = {
 VALID_MARKETS     = {"Bolga", "Kumasi", "Tamale", "Techiman", "Wa"}
 VALID_COMMODITIES = {"Maize", "Millet", "Sorghum"}
 
-# Documented Northern Ghana cereal seasonality (fractional expected
-# change to next-period price). Harvest (Oct-Dec): prices low, recovery
-# ahead. Lean (Jun-Aug): prices near peak, little upside to storing.
+# Harvest (Oct-Dec): prices low, recovery ahead → positive uplift.
+# Lean (Jun-Aug): prices near peak, little upside to storing → negative uplift.
 SEASONAL_UPLIFT = {
     1: 0.05, 2: 0.03, 3: 0.0,  4: -0.03, 5: -0.05, 6: -0.08,
     7: -0.08, 8: -0.05, 9: 0.08, 10: 0.22, 11: 0.20, 12: 0.12,
@@ -34,7 +29,6 @@ SEASONAL_UPLIFT = {
 _ml_ready = False
 
 def _load_ml():
-    """Load trained models on first use. Returns True if successful."""
     global _ml_ready
     if _ml_ready:
         return True
@@ -48,7 +42,6 @@ def _load_ml():
 
 
 def _get_macro_features(db: Session, commodity: str, month: int) -> dict:
-    """Fetch latest exchange rate and producer price index from MySQL."""
     fx_row = db.execute(text("""
         SELECT value FROM ghana_exchange_rates
         WHERE months != 'Annual value'
@@ -113,14 +106,6 @@ def get_recent_prices(
 
 
 def get_forecast(crop: str, district: str, db: Session, month: int = None) -> dict:
-    """
-    Estimate next-period price using a documented seasonal heuristic.
-
-    `month` defaults to the real current month. It can be overridden (1-12) to
-    show the recommendation for a different point in the season — used in the
-    demo to show that advice changes by season. The output is the genuine
-    seasonal-model result for that month, not a fabricated value.
-    """
     import datetime
     prices = get_recent_prices(crop, district, db)
     if not prices:
@@ -135,6 +120,7 @@ def get_forecast(crop: str, district: str, db: Session, month: int = None) -> di
         "method": "seasonal_heuristic",
     }
 
+
 def get_recommendation(
     crop: str,
     district: str,
@@ -146,21 +132,11 @@ def get_recommendation(
     storage_cost_per_bag_month: float = 0.80,
     month: int = None,
 ) -> dict:
-    """
-    Full recommendation pipeline.
-
-    Decision source: rule-based net-return calculation (calculate_net_return),
-    driven by a seasonal price heuristic. The trained XGBoost classifier is
-    run for comparison/telemetry only (ml_confidence, ml_all_probs) and does
-    NOT override the rule-based decision, because available price data ends
-    in 2023 and model forecasts are not reliable for current dates.
-    """
     market        = MARKET_FOR_DISTRICT.get(district, "Tamale")
     current_price = get_current_price(crop, district, db)
     forecast_data = get_forecast(crop, district, db, month=month)
     forecast_price = forecast_data.get("forecast_price", current_price * 1.25)
 
-    # calculate net return using rule-based formula
     decision_data = calculate_net_return(
         current_price              = current_price,
         forecast_price             = forecast_price,
@@ -168,7 +144,6 @@ def get_recommendation(
         storage_cost_per_bag_month = storage_cost_per_bag_month,
     )
 
-    # ML classifier decision
     ml_decision   = None
     ml_confidence = None
     ml_all_probs  = None
@@ -229,15 +204,12 @@ def get_recommendation(
         except Exception as e:
             print(f"[ml_service] Classifier prediction failed, using fallback: {e}")
 
-    # use ML decision if available otherwise use rule-based
     final_decision = decision_data["decision"]
-    
-    # find nearest storage
+
     storage = storage_service.get_nearest_storage(
         district=district, crop=crop, db=db
     )
 
-    # log recommendation to MySQL
     if db and phone_number:
         try:
             rec = Recommendation(

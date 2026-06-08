@@ -39,7 +39,6 @@ def get_recommendation(
 
 
 def _mask_phone(num: str) -> str:
-    """Privacy: show only the last 3 digits, e.g. +233...779."""
     if not num:
         return "anonymous"
     digits = "".join(ch for ch in num if ch.isdigit())
@@ -51,10 +50,6 @@ def get_activity(
     limit: int = Query(15, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """
-    Live farmer activity feed: recent sessions plus aggregate counts.
-    Reads the recommendations table that every USSD session writes to.
-    """
     total = db.query(func.count(Recommendation.id)).scalar() or 0
 
     recent_rows = (

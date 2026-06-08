@@ -17,19 +17,12 @@ DISTRICTS = {
 
 DEFAULT_QTY = 20
 
-# --- Demo mode -------------------------------------------------------------
-# A normal farmer never types this. If the FIRST segment is "9", the session
-# is in demo mode and the SECOND segment is a month (1-12) used to show how
-# the recommendation changes across the season. Everything after that is the
-# normal flow (language, crop, district, action). This keeps the real farmer
-# menu completely clean — they only ever see 1/2/3 — while letting the
-# presenter show June (SELL) vs October (STORE) live on the phone.
+# prefix "9" enters demo mode: second segment is the override month (1-12),
+# then the normal flow continues — farmers never see this path
 DEMO_PREFIX = "9"
-# ---------------------------------------------------------------------------
 
 
 def _fmt(n) -> str:
-    """Whole cedis with a thousands separator: 2628.4 -> '2,628'."""
     try:
         return f"{round(float(n)):,}"
     except (TypeError, ValueError):
@@ -45,20 +38,16 @@ def handle_ussd_session(
 
     parts = [p for p in text.split("*") if p]
 
-    # Detect and strip demo mode. If the first segment is the demo prefix,
-    # the second segment is the override month; the rest is the normal flow.
     demo_month = None
     if parts and parts[0] == DEMO_PREFIX:
         if len(parts) >= 2 and parts[1].isdigit():
             m = int(parts[1])
             if 1 <= m <= 12:
                 demo_month = m
-        # remove the two demo segments so the rest is the normal flow
         parts = parts[2:]
 
     level = len(parts)
 
-    # Screen 0 — language selection
     if level == 0:
         return (
             "CON Welcome to PostHarvest IQ\n"
@@ -70,7 +59,6 @@ def handle_ussd_session(
     lang_map = {"1": "en", "2": "dag", "3": "hau"}
     lang = lang_map.get(parts[0], "en")
 
-    # Screen 1 — crop selection
     if level == 1:
         return (
             f"CON {t(lang, 'select_crop')}\n"
@@ -79,7 +67,6 @@ def handle_ussd_session(
             f"3. {t(lang, 'sorghum')}"
         )
 
-    # Screen 2 — district selection
     if level == 2:
         return (
             f"CON {t(lang, 'select_dist')}\n"
@@ -89,7 +76,6 @@ def handle_ussd_session(
             "4. Tamale"
         )
 
-    # Screen 3 — recommendation
     if level == 3:
         crop = CROPS.get(parts[1], "Maize")
         district = DISTRICTS.get(parts[2], "Tamale")
@@ -130,7 +116,7 @@ def handle_ussd_session(
                     f"CON {t(lang, 'sell_partial')}\n"
                     f"{t(lang, 'total_for_bags').format(bags=DEFAULT_QTY, net=_fmt(net_total))}\n"
                 )
-            else:  # SELL_NOW (or any unexpected value -> safe sell advice)
+            else:
                 current_price = rec.get("current_price", 0)
                 body = (
                     f"CON {t(lang, 'sell_now')}\n"
@@ -142,13 +128,11 @@ def handle_ussd_session(
         except Exception:
             return f"END {t(lang, 'unavailable')}"
 
-    # Screen 4 — action
     if level == 4:
         crop = CROPS.get(parts[1], "Maize")
         district = DISTRICTS.get(parts[2], "Tamale")
         action = parts[3]
 
-        # Option 1 — find storage
         if action == "1":
             try:
                 locations = storage_service.get_nearest_storage(
@@ -173,7 +157,6 @@ def handle_ussd_session(
             except Exception:
                 return f"END {t(lang, 'no_storage')}\n{t(lang, 'call_mofa')}"
 
-        # Option 2 — sell all
         elif action == "2":
             try:
                 market = storage_service.get_nearest_market(
@@ -187,7 +170,6 @@ def handle_ussd_session(
             except Exception:
                 return f"END {t(lang, 'sell_now')}"
 
-        # Option 3 — sell half store half
         elif action == "3":
             try:
                 locations = storage_service.get_nearest_storage(
@@ -201,8 +183,6 @@ def handle_ussd_session(
                 price = rec.get("current_price", 0)
                 half = 10
 
-                # If storing loses money (negative net), recommend selling
-                # rather than showing a confusing negative "gain".
                 if net <= 0:
                     return (
                         f"END {t(lang, 'sell_now')}\n"
@@ -226,7 +206,6 @@ def handle_ussd_session(
             except Exception:
                 return f"END {t(lang, 'sell_partial')}"
 
-        # Option 4 — exit
         else:
             return f"END {t(lang, 'thanks')}"
 
