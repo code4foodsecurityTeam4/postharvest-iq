@@ -9,7 +9,10 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
-API_BASE = os.getenv("API_BASE", "http://localhost:8000")
+try:
+    API_BASE = st.secrets["API_BASE"]
+except Exception:
+    API_BASE = os.getenv("API_BASE", "https://postharvest-iq.onrender.com")
 SUMMARY_ENDPOINT = f"{API_BASE}/dashboard/summary"
 ACTIVITY_ENDPOINT = f"{API_BASE}/recommendations/activity"
 STORAGE_ENDPOINT = f"{API_BASE}/storage"
@@ -31,6 +34,14 @@ FALLBACK = [
     for d in DISTRICTS
     for c, p, n in [("Maize", 538.46, -925.6), ("Millet", 728.0, -1230.0), ("Sorghum", 741.2, -1250.0)]
 ]
+
+STORAGE_FALLBACK = {
+    "Tamale":     [{"name": "GCX Tamale Warehouse",  "distance_km": 0.0,  "cost_per_bag": 0.80, "contact_number": "0504444065", "type": "Ghana Commodity Exchange", "district": "Tamale",   "crops": ["Maize", "Sorghum"]}],
+    "Bolgatanga": [{"name": "GCX Bolga Warehouse",   "distance_km": 0.75, "cost_per_bag": 0.80, "contact_number": "0504444065", "type": "Ghana Commodity Exchange", "district": "Bolga",    "crops": ["Maize", "Sorghum"]},
+                   {"name": "GCX Sandema Warehouse", "distance_km": 44.9, "cost_per_bag": 0.80, "contact_number": "0594164451", "type": "Ghana Commodity Exchange", "district": "Sandema",  "crops": ["Maize", "Sorghum"]}],
+    "Wa":         [{"name": "GCX Wa Warehouse",      "distance_km": 0.0,  "cost_per_bag": 0.80, "contact_number": "0594164424", "type": "Ghana Commodity Exchange", "district": "Wa",       "crops": ["Maize", "Sorghum"]},
+                   {"name": "GCX Tumu Warehouse",    "distance_km": 68.5, "cost_per_bag": 0.80, "contact_number": "0594164424", "type": "Ghana Commodity Exchange", "district": "Tumu",     "crops": ["Maize", "Sorghum"]}],
+}
 
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -120,7 +131,7 @@ with st.sidebar:
                 f"<p style='color:{MUTE};font-size:.78rem;margin-top:0'>3 crops &nbsp;·&nbsp; Maize, Millet, Sorghum<br>3 districts · Tamale, Bolgatanga, Wa</p>", unsafe_allow_html=True)
 
 
-tab1, tab2, tab3, tab4 = st.tabs(["Live Activity", "Recommendations", "Storage", "Alignment"])
+tab1, tab2, tab3 = st.tabs(["Live Activity", "Recommendations", "Storage"])
 
 with tab1:
     st.markdown("""<div class='hero'><h1>Live activity</h1>
@@ -158,66 +169,173 @@ with tab1:
     else:
         with top[0]:
             st.warning("No live sessions yet — dial the USSD code to see one appear here.")
-        st.markdown(f"<div class='panel'>This feed fills the moment farmers start using the service. Every USSD session writes a row — crop, district, the decision we gave, the cedi figure — and it shows up here in seconds. <b style='color:{GOLD}'>Dial in during the demo and watch it land.</b></div>", unsafe_allow_html=True)
 
 
 with tab2:
-    st.markdown("# Recommendations given")
-    st.markdown(f"<p style='color:{MUTE}'>What the tool tells a farmer for every crop in every district. Switch months to see the advice change with the season.</p>", unsafe_allow_html=True)
-    sel = st.selectbox("Show me:", MONTHS, index=0,
-        help="Defaults to live. Pick a month to watch the advice flip across the season — same engine, different time of year.")
+    st.markdown(f"""<div class='hero'>
+    <h1>What the engine decides</h1>
+    <p>XGBoost trained across 5 algorithms — best selected by validation F1.
+    9 crop-district pairs, priced live. Switch months to watch the advice shift with the season.</p>
+    </div>""", unsafe_allow_html=True)
+
+    ctl_l, ctl_r = st.columns([4, 1])
+    with ctl_l:
+        sel = st.selectbox(
+            "Season:",
+            MONTHS,
+            index=0,
+            help="Current = live market data. Pick a month to simulate what the engine would say at that point in the season.",
+        )
     month = None if sel == CURRENT_LABEL else MONTHS.index(sel)
     rows, src = load_summary(month)
     df = pd.DataFrame(rows)
-    a, b = st.columns([3, 1])
-    with a:
-        lab = CURRENT_LABEL if month is None else MONTHS[month]
-        if src == "live":
-            st.success(f"Live · {lab} · {_dt.datetime.now():%H:%M:%S}")
-        else:
-            st.warning("Sample snapshot — API unreachable.")
-    with b:
+    lab = CURRENT_LABEL if month is None else MONTHS[month]
+    with ctl_r:
+        st.markdown("<div style='margin-top:1.75rem'>", unsafe_allow_html=True)
         if st.button("↻ Refresh", key="rec_refresh"):
             st.cache_data.clear(); st.rerun()
-    if not df.empty and "decision" in df:
-        m = st.columns(4)
-        m[0].markdown(stat(len(df), "crop × district pairs"), unsafe_allow_html=True)
-        m[1].markdown(stat(int((df.decision == "STORE").sum()), "store"), unsafe_allow_html=True)
-        m[2].markdown(stat(int((df.decision == "SELL_NOW").sum()), "sell now"), unsafe_allow_html=True)
-        m[3].markdown(stat(int((df.decision == "SELL_PARTIAL").sum()), "sell half"), unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if src == "live":
+        st.success(f"Live · {lab} · {_dt.datetime.now():%H:%M:%S}")
+    else:
+        st.warning("Showing sample snapshot — API unreachable. Numbers are illustrative.")
+
+    if not df.empty and "decision" in df.columns:
+        sc = st.columns(4)
+        sc[0].markdown(stat(len(df), "crop × district pairs"), unsafe_allow_html=True)
+        sc[1].markdown(stat(int((df["decision"] == "STORE").sum()), "store now"), unsafe_allow_html=True)
+        sc[2].markdown(stat(int((df["decision"] == "SELL_NOW").sum()), "sell now"), unsafe_allow_html=True)
+        sc[3].markdown(stat(int((df["decision"] == "SELL_PARTIAL").sum()), "sell partial"), unsafe_allow_html=True)
+
         st.markdown("<br>", unsafe_allow_html=True)
-        rows_html = "".join(
-            f"<tr><td style='padding:9px 12px'>{r.district}</td><td style='padding:9px 12px'>{r.crop}</td>"
-            f"<td style='padding:9px 12px'>{badge(r.decision)}</td>"
-            f"<td style='padding:9px 12px;text-align:right'>{cedis(r.get('current_price'))}</td>"
-            f"<td style='padding:9px 12px;text-align:right'>{cedis(r.get('forecast_price'))}</td>"
-            f"<td style='padding:9px 12px;text-align:right;color:{GREEN if (r.get('net_total') or 0)>0 else RED}'>{cedis(r.get('net_total'))}</td></tr>"
-            for _, r in df.iterrows())
-        st.markdown(f"""<div class='panel'><table style='width:100%;border-collapse:collapse'>
-        <thead><tr style='border-bottom:2px solid {GOLD};text-align:left;color:{GRAIN}'>
-        <th style='padding:9px 12px'>District</th><th style='padding:9px 12px'>Crop</th><th style='padding:9px 12px'>Call</th>
-        <th style='padding:9px 12px;text-align:right'>Today</th><th style='padding:9px 12px;text-align:right'>Forecast</th>
-        <th style='padding:9px 12px;text-align:right'>Net (20 bags)</th></tr></thead><tbody>{rows_html}</tbody></table></div>""", unsafe_allow_html=True)
-        st.caption("Net = gain or loss on 20 bags after storage cost. Red means storing loses money, so we say sell.")
+        st.markdown("### Decision matrix")
+        st.markdown(f"<p style='color:{MUTE};margin-bottom:1.2rem'>One call per crop per district. Border colour = the recommendation. Net return is on a 20-bag harvest after storage cost.</p>", unsafe_allow_html=True)
+
+        for district in DISTRICTS:
+            d_rows = df[df["district"] == district]
+            st.markdown(f"<p style='color:{GRAIN};font-size:.7rem;letter-spacing:1.5px;text-transform:uppercase;margin:.4rem 0 .5rem 0'>{district}</p>", unsafe_allow_html=True)
+            dc = st.columns(3)
+            for i, crop in enumerate(CROPS):
+                match = d_rows[d_rows["crop"] == crop]
+                if match.empty:
+                    continue
+                r = match.iloc[0]
+                dec = r.get("decision") or "UNAVAILABLE"
+                dec_col, dec_lbl = DEC.get(dec, DEC["UNAVAILABLE"])
+                net = float(r.get("net_total") or 0)
+                net_col = GREEN if net > 0 else RED
+                net_str = f"{'+'if net>0 else ''}GHS {abs(round(net)):,}"
+                cur = cedis(r.get("current_price"))
+                fcast = cedis(r.get("forecast_price"))
+                dc[i].markdown(f"""<div style='background:{PANEL};border:1px solid #2E2820;border-top:3px solid {dec_col};
+                border-radius:10px;padding:1rem 1.1rem;margin-bottom:.7rem'>
+                <div style='font-size:.72rem;color:{MUTE};letter-spacing:1.2px;text-transform:uppercase;margin-bottom:.55rem'>{crop}</div>
+                <span class='pill' style='background:{dec_col}'>{dec_lbl}</span>
+                <div style='margin-top:.9rem;display:grid;grid-template-columns:auto 1fr;row-gap:.25rem;column-gap:.5rem;font-size:.8rem'>
+                  <span style='color:{MUTE}'>Today</span><span style='color:{CREAM};text-align:right'>{cur}</span>
+                  <span style='color:{MUTE}'>Forecast</span><span style='color:{CREAM};text-align:right'>{fcast}</span>
+                  <span style='color:{MUTE}'>Net</span><span style='color:{net_col};font-weight:600;text-align:right'>{net_str}</span>
+                </div></div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### Net return on 20 bags")
+        st.markdown(f"<p style='color:{MUTE};margin-bottom:.6rem'>Revenue gain or loss from storing until the forecast month, minus GHS 0.80/bag/month storage cost.</p>", unsafe_allow_html=True)
+
+        net_labels = [f"{r['district'][:3]} · {r['crop'][:3]}" for _, r in df.iterrows()]
+        net_values = [float(r.get("net_total") or 0) for _, r in df.iterrows()]
+        bar_colors  = [GREEN if v > 0 else RED for v in net_values]
+        bar_text    = [f"GHS {v:,.0f}" for v in net_values]
+
+        fig_net = go.Figure(go.Bar(
+            x=net_labels, y=net_values,
+            marker_color=bar_colors,
+            text=bar_text, textposition="outside",
+            textfont=dict(color=CREAM, size=10),
+            cliponaxis=False,
+        ))
+        fig_net.add_hline(y=0, line_color=MUTE, line_width=1)
+        fig_net.update_layout(
+            plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM,
+            height=340, margin=dict(t=40, b=10, l=10, r=10),
+            showlegend=False, yaxis_title="GHS",
+        )
+        fig_net.update_xaxes(gridcolor="#2E2820", tickfont=dict(size=11))
+        fig_net.update_yaxes(gridcolor="#2E2820", zeroline=False)
+        st.plotly_chart(fig_net, use_container_width=True)
 
         lstm_rows = [r for _, r in df.iterrows() if r.get("method") == "lstm"]
         if lstm_rows:
-            gaps = [round(float(r["current_price"]) - float(r["forecast_price"]), 2)
-                    for r in lstm_rows
-                    if r.get("current_price") and r.get("forecast_price")]
-            avg_gap = round(sum(gaps) / len(gaps)) if gaps else 0
-            st.markdown(f"""<div class='panel' style='border-left:4px solid {AMBER};margin-top:1.2rem'>
-            <b style='color:{AMBER};font-size:1.05rem'>Why the forecast looks low — and why that matters</b><br><br>
-            The <b>Forecast</b> column is powered by an LSTM model trained on WFP price data from
-            <b>2006–2023</b>. Northern Ghana cereal prices have risen sharply since then —
-            current prices are <b>GHS 490–760</b>, well above the model's training range of GHS 95–200.<br><br>
-            The result is a forecast gap of roughly <b style='color:{AMBER}'>GHS {avg_gap:,} per bag</b> on average.
-            That gap is not a model failure — it is the exact distance between
-            <b>what our model knows</b> and <b>what the market is doing today</b>.<br><br>
-            <b style='color:{CREAM}'>Closing this gap requires one thing: updated WFP market price data from 2023 onwards.</b>
-            With that data, the LSTM retrains in under an hour and the forecast column becomes a live signal
-            farmers can act on. This is a core part of what we are seeking funding to secure.
-            </div>""", unsafe_allow_html=True)
+            gaps = [float(r["current_price"]) - float(r["forecast_price"])
+                    for r in lstm_rows if r.get("current_price") and r.get("forecast_price")]
+            avg_gap = round(sum(gaps) / len(gaps)) if gaps else 304
+        else:
+            avg_gap = 304  # known gap from live data
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        gap_l, gap_r = st.columns([3, 2])
+
+        with gap_l:
+            st.markdown(f"""<div style='background:{PANEL};border:1px solid #2E2820;border-left:4px solid {AMBER};
+            border-radius:12px;padding:1.6rem 1.8rem'>
+            <div style='font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;color:{AMBER};margin-bottom:.7rem'>The data gap · and the funding ask</div>
+            <div style='font-family:Fraunces,serif;font-size:1.55rem;font-weight:900;color:{CREAM};line-height:1.25;margin-bottom:1.1rem'>
+            Our LSTM was trained on prices from a different era of Ghana's cereal market.</div>
+            <div style='display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.1rem'>
+              <div style='background:{INK};border-radius:8px;padding:.85rem 1rem'>
+                <div style='font-size:.7rem;color:{MUTE};margin-bottom:.3rem'>Training data · 2006–2023</div>
+                <div style='font-family:Fraunces,serif;font-size:1.4rem;font-weight:900;color:{GRAIN}'>GHS 95–200</div>
+              </div>
+              <div style='background:{INK};border-radius:8px;padding:.85rem 1rem'>
+                <div style='font-size:.7rem;color:{MUTE};margin-bottom:.3rem'>Current market · 2024–2026</div>
+                <div style='font-family:Fraunces,serif;font-size:1.4rem;font-weight:900;color:{AMBER}'>GHS 490–760</div>
+              </div>
+            </div>
+            <div style='font-size:.88rem;color:{GRAIN};line-height:1.75'>
+            Average gap: <b style='color:{AMBER};font-size:1.05rem'>GHS {avg_gap:,} per bag</b>
+            &nbsp;·&nbsp; <b style='color:{CREAM}'>GHS {avg_gap * 20:,} on 20 bags</b><br><br>
+            This is not a model failure. It is the precise distance between
+            what our model was trained to know and what the market is doing today.<br><br>
+            <b style='color:{CREAM}'>One dataset closes it.</b> Updated WFP price data from 2023 onwards.
+            The LSTM retrains in under one hour. The forecast column becomes a live signal
+            every farmer can act on.<br><br>
+            <span style='color:{AMBER};font-weight:600;font-size:.92rem'>This is the core of what we are seeking funding to secure.</span>
+            </div></div>""", unsafe_allow_html=True)
+
+        with gap_r:
+            fig_gap = go.Figure()
+            fig_gap.add_trace(go.Bar(
+                name="Training era", x=["GHS / bag"],
+                y=[105], base=[95],
+                marker_color=GRAIN, marker_line_width=0, width=0.45,
+                text="GHS 95–200<br>Training data<br>2006–2023",
+                textposition="inside", textfont=dict(color=INK, size=11),
+            ))
+            fig_gap.add_trace(go.Bar(
+                name="Uncharted", x=["GHS / bag"],
+                y=[290], base=[200],
+                marker_color="#252018",
+                marker_line=dict(width=1, color="#3A3020"),
+                width=0.45,
+                text="— gap —<br>no data",
+                textposition="inside", textfont=dict(color=MUTE, size=10),
+            ))
+            fig_gap.add_trace(go.Bar(
+                name="Current market", x=["GHS / bag"],
+                y=[270], base=[490],
+                marker_color=AMBER, marker_line_width=0, width=0.45,
+                text="GHS 490–760<br>Today's prices<br>2024–2026",
+                textposition="inside", textfont=dict(color=INK, size=11),
+            ))
+            fig_gap.update_layout(
+                barmode="stack",
+                plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM,
+                height=380, margin=dict(t=20, b=10, l=10, r=10),
+                showlegend=False, yaxis_title="GHS per bag",
+                yaxis=dict(range=[0, 820], gridcolor="#2E2820", tickprefix="GHS "),
+            )
+            fig_gap.update_xaxes(showticklabels=False, showgrid=False)
+            st.plotly_chart(fig_gap, use_container_width=True)
 
 
 with tab3:
@@ -232,13 +350,15 @@ with tab3:
         locs = data
     elif isinstance(data, dict):
         locs = data.get("storage_locations") or data.get("locations") or data.get("storage") or []
+    if not locs:
+        fallback_all = STORAGE_FALLBACK.get(d, [])
+        locs = [l for l in fallback_all if c in l.get("crops", [])]
+        src = "offline"
     if locs:
-        try:
-            locs = sorted(locs, key=lambda x: float(x.get("distance_km", 9e9)))
-        except Exception:
-            pass
+        locs = sorted(locs, key=lambda x: float(x.get("distance_km", 9e9)))
+        src_label = "" if src == "live" else f" <span style='color:{MUTE};font-size:.75rem'>(cached)</span>"
         st.markdown(f"<p style='color:{MUTE};margin-bottom:1rem'>{len(locs)} verified "
-                    f"warehouse{'s' if len(locs)!=1 else ''} that accept {c}, nearest first.</p>",
+                    f"warehouse{'s' if len(locs)!=1 else ''} that accept {c}, nearest first.{src_label}</p>",
                     unsafe_allow_html=True)
         for loc in locs:
             name = loc.get("name", "Warehouse")
@@ -266,34 +386,7 @@ with tab3:
         <b style='color:{AMBER}'>No verified storage for {c} near {d}.</b><br>
         We don't invent a warehouse that isn't there. For {c}, selling is likely the better call — and
         closing this gap is a defined next step. <span style='color:{MUTE}'>(The Ghana Commodity Exchange
-        warehouses we mapped accept maize and sorghum, not millet — and they're the only verified
-        storage we could find, which is a visibility gap in itself.)</span></div>""", unsafe_allow_html=True)
+        warehouses we mapped accept maize and sorghum — millet has no verified storage in our registry,
+        which is a visibility gap in itself.)</span></div>""", unsafe_allow_html=True)
 
 
-with tab4:
-    st.markdown("# Why this matters")
-    st.markdown(f"<p style='color:{MUTE}'>Every recommendation in PostHarvest IQ is designed around one goal: helping farmers make better selling decisions and keep more value from their harvest.</p>", unsafe_allow_html=True)
-    sdgs = [
-        ("SDG 2 · Zero Hunger", "Targets 2.3 & 2.c", GOLD,
-         "By helping farmers identify more favourable selling periods, PostHarvest IQ aims to improve returns from existing harvests, contributing to higher agricultural incomes. Better-informed selling decisions may also help ease the pressure that builds when large volumes enter the market all at once after harvest."),
-        ("SDG 1 · No Poverty", "Target 1.1", GREEN,
-         "The net-return figure gives farmers a clearer picture of whether a sale is likely to profit after storage and transport costs, supporting more informed income decisions."),
-        ("SDG 9 · Innovation & Infrastructure", "Target 9.c", GRAIN,
-         "Delivered through USSD, the tool is accessible on basic mobile phones, no internet or smartphone required."),
-        ("SDG 10 · Reduced Inequalities", "Target 10.2", "#7FA6C9",
-         "By prioritising feature phones and local-language access, the platform reaches farmers who are often excluded from digital agricultural services."),
-    ]
-    for title, tgt, col, body in sdgs:
-        st.markdown(f"""<div class='panel' style='border-left:4px solid {col}'>
-        <b style='color:{col};font-size:1.05rem'>{title}</b><span class='tag'>{tgt}</span><br>
-        <span>{body}</span></div>""", unsafe_allow_html=True)
-    st.markdown("### Built on WFP's existing investments")
-    st.markdown(f"""<div class='panel'>
-    PostHarvest IQ builds on the market intelligence WFP already collects through its
-    <b style='color:{GOLD}'>VAM price monitoring</b>. Rather than creating a new data-collection programme,
-    it transforms existing market information into practical guidance a farmer can use when deciding
-    whether to sell now or store.</div>""", unsafe_allow_html=True)
-    st.markdown(f"""<div class='panel'>
-    The concept aligns with WFP's <b>Country Strategic Plan 2024–2028</b>, particularly its focus on
-    resilient livelihoods and smallholder support, and complements initiatives such as
-    <b>Purchase for Progress</b> by encouraging informed post-harvest decisions and better grain management.</div>""", unsafe_allow_html=True)

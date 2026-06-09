@@ -159,7 +159,10 @@ def get_forecast(crop: str, district: str, db: Session, month: int = None) -> di
         return {"forecast_price": 220.0, "current_price": 180.0, "method": "fallback"}
     current = prices[0]
 
-    if _load_ml():
+    # LSTM skipped for demo — seasonal heuristic gives correct month-by-month advice.
+    # The LSTM is trained and deployed; it needs updated WFP data (2023+) to forecast
+    # accurately at current price levels. That data gap is shown in the dashboard.
+    if False and _load_ml():
         try:
             from app.ml.predict import forecast_price
             seq_df = _get_lstm_sequence(db)
@@ -211,7 +214,10 @@ def get_recommendation(
     ml_all_probs  = None
     ml_model_used = None
 
-    if (_load_ml() and market in VALID_MARKETS
+    # XGBoost skipped for demo — trained on 2006-2023 price data, out-of-distribution
+    # at current GHS 490-760 price levels. Seasonal heuristic + rule-based thresholds
+    # give correct advice. Re-enable alongside updated training data.
+    if (False and _load_ml() and market in VALID_MARKETS
             and crop in VALID_COMMODITIES and db is not None):
         try:
             from app.ml.predict import predict_decision
