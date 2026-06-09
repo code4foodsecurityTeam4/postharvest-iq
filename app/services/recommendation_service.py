@@ -1,3 +1,6 @@
+from app.ml.config import STORE_THRESHOLD, PARTIAL_THRESHOLD
+
+
 def calculate_net_return(
     current_price: float,
     forecast_price: float,
@@ -12,9 +15,9 @@ def calculate_net_return(
     net_per_bag    = expected_gain - storage_cost - transport_cost_per_bag
     net_total      = net_per_bag * quantity_bags
 
-    if net_per_bag > 20:
+    if net_per_bag > STORE_THRESHOLD:
         decision = "STORE"
-    elif net_per_bag > 5:
+    elif net_per_bag > PARTIAL_THRESHOLD:
         decision = "SELL_PARTIAL"
     else:
         decision = "SELL_NOW"

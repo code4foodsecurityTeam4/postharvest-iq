@@ -1,6 +1,9 @@
+import logging
 from sqlalchemy.orm import Session
 from app.services.strings import t
 from app.services import ml_service, storage_service
+
+_log = logging.getLogger(__name__)
 
 CROPS = {
     "1": "Maize",
@@ -9,10 +12,9 @@ CROPS = {
 }
 
 DISTRICTS = {
-    "1": "Sagnarigu",
-    "2": "Tolon",
-    "3": "Kumbungu",
-    "4": "Tamale",
+    "1": "Tamale",
+    "2": "Bolgatanga",
+    "3": "Wa",
 }
 
 DEFAULT_QTY = 20
@@ -70,10 +72,9 @@ def handle_ussd_session(
     if level == 2:
         return (
             f"CON {t(lang, 'select_dist')}\n"
-            "1. Sagnarigu\n"
-            "2. Tolon\n"
-            "3. Kumbungu\n"
-            "4. Tamale"
+            "1. Tamale\n"
+            "2. Bolgatanga\n"
+            "3. Wa"
         )
 
     if level == 3:
@@ -126,6 +127,7 @@ def handle_ussd_session(
             return body + menu
 
         except Exception:
+            _log.exception("level-3 recommendation failed sid=%s", session_id)
             return f"END {t(lang, 'unavailable')}"
 
     if level == 4:
@@ -155,6 +157,7 @@ def handle_ussd_session(
                     f"{t(lang, 'call_mofa')}"
                 )
             except Exception:
+                _log.exception("storage lookup failed sid=%s", session_id)
                 return f"END {t(lang, 'no_storage')}\n{t(lang, 'call_mofa')}"
 
         elif action == "2":
@@ -168,6 +171,7 @@ def handle_ussd_session(
                     f"{t(lang, 'nearest_market').format(town=town)}"
                 )
             except Exception:
+                _log.exception("market lookup failed sid=%s", session_id)
                 return f"END {t(lang, 'sell_now')}"
 
         elif action == "3":
@@ -204,6 +208,7 @@ def handle_ussd_session(
                     lines.append(t(lang, "call_mofa"))
                 return "\n".join(lines)
             except Exception:
+                _log.exception("sell-half flow failed sid=%s", session_id)
                 return f"END {t(lang, 'sell_partial')}"
 
         else:

@@ -1,3 +1,4 @@
+import logging
 import math
 import numpy as np
 import pandas as pd
@@ -7,17 +8,22 @@ from sqlalchemy import text
 from app.services.recommendation_service import calculate_net_return
 from app.services import storage_service
 from app.models.recommendation import Recommendation
+from app.ml.config import (
+    VALID_MARKETS as _VALID_MARKETS_LIST,
+    VALID_COMMODITIES as _VALID_COMMODITIES_LIST,
+    LSTM_FEAT_COLS, LSTM_SEQ_LEN,
+)
 
+_log = logging.getLogger(__name__)
 
 MARKET_FOR_DISTRICT = {
-    "Sagnarigu": "Tamale",
-    "Tolon":     "Tamale",
-    "Kumbungu":  "Tamale",   # no WFP price data for Kumbungu market; Tamale is nearest
-    "Tamale":    "Tamale",
+    "Tamale":     "Tamale",
+    "Bolgatanga": "Bolga",
+    "Wa":         "Wa",
 }
 
-VALID_MARKETS     = {"Bolga", "Kumasi", "Tamale", "Techiman", "Wa"}
-VALID_COMMODITIES = {"Maize", "Millet", "Sorghum"}
+VALID_MARKETS     = set(_VALID_MARKETS_LIST)
+VALID_COMMODITIES = set(_VALID_COMMODITIES_LIST)
 
 # Harvest (Oct-Dec): prices low, recovery ahead → positive uplift.
 # Lean (Jun-Aug): prices near peak, little upside to storing → negative uplift.
@@ -36,8 +42,8 @@ def _load_ml():
         from app.ml import predict as _predict   # noqa: F401
         _ml_ready = True
         return True
-    except Exception as e:
-        print(f"[ml_service] ML models not loaded: {e}")
+    except Exception:
+        _log.exception("[ml_service] ML models not loaded")
         return False
 
 
@@ -105,19 +111,75 @@ def get_recent_prices(
     return [float(r[0]) for r in rows]
 
 
+def _get_lstm_sequence(db: Session) -> pd.DataFrame:
+    rows = db.execute(text("""
+        SELECT
+            p.date,
+            AVG(p.price)                      AS price,
+            AVG(fx.value)                     AS exchange_rate,
+            AVG(pp.value)                     AS producer_price_index,
+            SIN(2*PI()*MONTH(p.date)/12)      AS month_sin,
+            COS(2*PI()*MONTH(p.date)/12)      AS month_cos
+        FROM wfp_prices p
+        LEFT JOIN ghana_exchange_rates fx
+            ON  fx.year    = YEAR(p.date)
+            AND fx.months  = DATE_FORMAT(p.date, '%M')
+            AND fx.element = 'Local currency units per USD'
+        LEFT JOIN fao_producer_prices pp
+            ON  pp.year    = YEAR(p.date)
+            AND pp.months  = 'Annual value'
+            AND pp.element = 'Producer Price Index (2014-2016 = 100)'
+        WHERE p.commodity IN ('Maize', 'Millet', 'Sorghum')
+          AND p.pricetype = 'Wholesale'
+          AND p.market IN ('Tamale', 'Bolga', 'Wa', 'Kumasi', 'Techiman')
+        GROUP BY p.date
+        ORDER BY p.date DESC
+        LIMIT :n
+    """), {"n": LSTM_SEQ_LEN + 6}).fetchall()
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows, columns=[
+        'date', 'price', 'exchange_rate', 'producer_price_index', 'month_sin', 'month_cos'
+    ])
+    df = df.sort_values('date').reset_index(drop=True)
+    df['price_lag1']     = df['price'].shift(1)
+    df['price_lag2']     = df['price'].shift(2)
+    df['price_lag3']     = df['price'].shift(3)
+    df['rolling_mean_3'] = df['price'].rolling(3, min_periods=1).mean()
+    df['rolling_std_3']  = df['price'].rolling(3, min_periods=2).std()
+    return df.dropna(subset=LSTM_FEAT_COLS).reset_index(drop=True)
+
+
 def get_forecast(crop: str, district: str, db: Session, month: int = None) -> dict:
     import datetime
     prices = get_recent_prices(crop, district, db)
     if not prices:
         return {"forecast_price": 220.0, "current_price": 180.0, "method": "fallback"}
     current = prices[0]
+
+    if _load_ml():
+        try:
+            from app.ml.predict import forecast_price
+            seq_df = _get_lstm_sequence(db)
+            if len(seq_df) >= LSTM_SEQ_LEN:
+                predicted = forecast_price(seq_df)
+                return {
+                    "forecast_price": predicted,
+                    "current_price":  current,
+                    "method":         "lstm",
+                }
+        except Exception:
+            _log.exception("[ml_service] LSTM forecast failed, falling back to heuristic")
+
     if month is None:
         month = datetime.datetime.now().month
     uplift = SEASONAL_UPLIFT.get(month, 0.0)
     return {
         "forecast_price": round(current * (1 + uplift), 2),
-        "current_price": current,
-        "method": "seasonal_heuristic",
+        "current_price":  current,
+        "method":         "seasonal_heuristic",
     }
 
 
@@ -201,10 +263,10 @@ def get_recommendation(
             ml_all_probs  = result["all_probs"]
             ml_model_used = result["model_used"]
 
-        except Exception as e:
-            print(f"[ml_service] Classifier prediction failed, using fallback: {e}")
+        except Exception:
+            _log.exception("[ml_service] Classifier prediction failed, using fallback")
 
-    final_decision = decision_data["decision"]
+    final_decision = ml_decision if ml_decision is not None else decision_data["decision"]
 
     storage = storage_service.get_nearest_storage(
         district=district, crop=crop, db=db
@@ -223,13 +285,13 @@ def get_recommendation(
                 forecast_price= forecast_price,
                 decision      = final_decision,
                 net_return    = decision_data["net_total"],
-                storage_id    = None,
+                storage_id    = storage[0]["id"] if storage else None,
             )
             db.add(rec)
             db.commit()
-        except Exception as e:
+        except Exception:
             db.rollback()
-            print(f"[ml_service] Failed to log recommendation: {e}")
+            _log.exception("[ml_service] Failed to log recommendation")
 
     return {
         "decision":      final_decision,

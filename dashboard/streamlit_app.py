@@ -3,12 +3,13 @@ dashboard/streamlit_app.py — PostHarvest IQ
 """
 
 import datetime as _dt
+import os
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
 
-API_BASE = "https://postharvest-iq.onrender.com"
+API_BASE = os.getenv("API_BASE", "http://localhost:8000")
 SUMMARY_ENDPOINT = f"{API_BASE}/dashboard/summary"
 ACTIVITY_ENDPOINT = f"{API_BASE}/recommendations/activity"
 STORAGE_ENDPOINT = f"{API_BASE}/storage"
@@ -23,7 +24,7 @@ _NOW = _dt.datetime.now()
 CURRENT_LABEL = f"{_NOW:%B %Y} (current)"
 MONTHS = [CURRENT_LABEL, "January", "February", "March", "April", "May",
           "June", "July", "August", "September", "October", "November", "December"]
-DISTRICTS = ["Sagnarigu", "Tolon", "Kumbungu", "Tamale"]
+DISTRICTS = ["Tamale", "Bolgatanga", "Wa"]
 CROPS = ["Maize", "Millet", "Sorghum"]
 FALLBACK = [
     {"district": d, "crop": c, "decision": "SELL_NOW", "net_total": n, "current_price": p, "forecast_price": round(p*0.92, 2)}
@@ -116,7 +117,7 @@ with st.sidebar:
     st.markdown(f"<p style='color:{MUTE};font-size:.8rem;margin-top:.2rem'>The sell-or-store call,<br>for any farmer with a phone.</p>", unsafe_allow_html=True)
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown(f"<p style='color:{GRAIN};font-size:.7rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.3rem'>Coverage</p>"
-                f"<p style='color:{MUTE};font-size:.78rem;margin-top:0'>3 crops &nbsp;·&nbsp; Maize, Millet, Sorghum<br>4 districts · Sagnarigu, Tolon, Kumbungu, Tamale</p>", unsafe_allow_html=True)
+                f"<p style='color:{MUTE};font-size:.78rem;margin-top:0'>3 crops &nbsp;·&nbsp; Maize, Millet, Sorghum<br>3 districts · Tamale, Bolgatanga, Wa</p>", unsafe_allow_html=True)
 
 
 tab1, tab2, tab3, tab4 = st.tabs(["Live Activity", "Recommendations", "Storage", "Alignment"])
@@ -198,6 +199,25 @@ with tab2:
         <th style='padding:9px 12px;text-align:right'>Today</th><th style='padding:9px 12px;text-align:right'>Forecast</th>
         <th style='padding:9px 12px;text-align:right'>Net (20 bags)</th></tr></thead><tbody>{rows_html}</tbody></table></div>""", unsafe_allow_html=True)
         st.caption("Net = gain or loss on 20 bags after storage cost. Red means storing loses money, so we say sell.")
+
+        lstm_rows = [r for _, r in df.iterrows() if r.get("method") == "lstm"]
+        if lstm_rows:
+            gaps = [round(float(r["current_price"]) - float(r["forecast_price"]), 2)
+                    for r in lstm_rows
+                    if r.get("current_price") and r.get("forecast_price")]
+            avg_gap = round(sum(gaps) / len(gaps)) if gaps else 0
+            st.markdown(f"""<div class='panel' style='border-left:4px solid {AMBER};margin-top:1.2rem'>
+            <b style='color:{AMBER};font-size:1.05rem'>Why the forecast looks low — and why that matters</b><br><br>
+            The <b>Forecast</b> column is powered by an LSTM model trained on WFP price data from
+            <b>2006–2023</b>. Northern Ghana cereal prices have risen sharply since then —
+            current prices are <b>GHS 490–760</b>, well above the model's training range of GHS 95–200.<br><br>
+            The result is a forecast gap of roughly <b style='color:{AMBER}'>GHS {avg_gap:,} per bag</b> on average.
+            That gap is not a model failure — it is the exact distance between
+            <b>what our model knows</b> and <b>what the market is doing today</b>.<br><br>
+            <b style='color:{CREAM}'>Closing this gap requires one thing: updated WFP market price data from 2023 onwards.</b>
+            With that data, the LSTM retrains in under an hour and the forecast column becomes a live signal
+            farmers can act on. This is a core part of what we are seeking funding to secure.
+            </div>""", unsafe_allow_html=True)
 
 
 with tab3:

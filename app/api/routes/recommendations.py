@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 from app.core.database import get_db
 from app.services import ml_service
 from app.models.recommendation import Recommendation
@@ -11,10 +11,10 @@ router = APIRouter()
 
 
 class RecommendationRequest(BaseModel):
-    crop: str
-    district: str
+    crop: Literal["Maize", "Millet", "Sorghum"]
+    district: Literal["Tamale", "Bolgatanga", "Wa"]
     quantity_bags: int = 20
-    language: str = "en"
+    language: Literal["en", "dag", "hau"] = "en"
     phone_number: str = ""
     session_id: str = ""
     month: Optional[int] = None   # demo override; defaults to current month
@@ -68,7 +68,6 @@ def get_activity(
         "language": r.language,
     } for r in recent_rows]
 
-    # breakdowns
     by_decision = dict(
         db.query(Recommendation.decision, func.count(Recommendation.id))
         .group_by(Recommendation.decision).all()

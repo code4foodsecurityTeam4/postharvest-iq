@@ -4,17 +4,15 @@ from app.models.storage import StorageLocation
 from app.models.wfp_market import WFPMarket
 
 DISTRICT_COORDS = {
-    "Sagnarigu": (9.45, -0.88),
-    "Tolon":     (9.45, -1.00),
-    "Kumbungu":  (9.56, -0.95),
-    "Tamale":    (9.40, -0.83),
+    "Tamale":     (9.40,  -0.84),
+    "Bolgatanga": (10.79, -0.85),
+    "Wa":         (10.06, -2.51),
 }
 
 DISTRICT_TO_MARKET = {
-    "Sagnarigu": "Tamale",
-    "Tolon":     "Tamale",
-    "Kumbungu":  "Tamale",   # no WFP price data for Kumbungu market; Tamale is nearest
-    "Tamale":    "Tamale",
+    "Tamale":     "Tamale",
+    "Bolgatanga": "Bolga",
+    "Wa":         "Wa",
 }
 
 def haversine_km(lat1, lng1, lat2, lng2) -> float:
@@ -49,6 +47,7 @@ def get_nearest_storage(
             loc.gps_lat, loc.gps_lng
         )
         results.append({
+            "id":             loc.id,
             "name":           loc.name,
             "distance_km":    round(dist, 2),
             "cost_per_bag":   loc.cost_per_bag_per_month,
