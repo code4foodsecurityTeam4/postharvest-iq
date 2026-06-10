@@ -131,7 +131,7 @@ with st.sidebar:
                 f"<p style='color:{MUTE};font-size:.78rem;margin-top:0'>3 crops &nbsp;·&nbsp; Maize, Millet, Sorghum<br>3 districts · Tamale, Bolgatanga, Wa</p>", unsafe_allow_html=True)
 
 
-tab1, tab2, tab3, tab4 = st.tabs(["Live Activity", "Recommendations", "Storage", "Data & Models"])
+tab1, tab2, tab3 = st.tabs(["Live Activity", "Recommendations", "Storage"])
 
 with tab1:
     st.markdown("""<div class='hero'><h1>Live activity</h1>
@@ -146,7 +146,7 @@ with tab1:
             st.success(f"Live from the database · {_dt.datetime.now():%H:%M:%S}")
         c = st.columns(4)
         c[0].markdown(stat(data["total_sessions"], "decisions delivered"), unsafe_allow_html=True)
-        c[1].markdown(stat(data["unique_farmers"], "farmers reached"), unsafe_allow_html=True)
+        c[1].markdown(stat("3", "languages supported"), unsafe_allow_html=True)
         c[2].markdown(stat(data.get("by_decision", {}).get("SELL_NOW", 0), "told to sell"), unsafe_allow_html=True)
         c[3].markdown(stat(data.get("by_decision", {}).get("STORE", 0), "told to store"), unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -160,12 +160,72 @@ with tab1:
         empty_msg = "<p style='padding:1rem'>No sessions yet.</p>"
         st.markdown(f"<div class='panel' style='padding:.3rem 0'>{feed or empty_msg}</div>", unsafe_allow_html=True)
         bc = data.get("by_crop", {})
-        if bc:
-            st.markdown("### What they're asking about")
-            fig = go.Figure(go.Bar(x=list(bc.keys()), y=list(bc.values()), marker_color=GOLD))
-            fig.update_layout(plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM, height=300, margin=dict(t=20, b=30), showlegend=False)
-            fig.update_xaxes(gridcolor="#2E2820"); fig.update_yaxes(gridcolor="#2E2820")
-            st.plotly_chart(fig, use_container_width=True)
+        bd = data.get("by_district", {})
+        bde = data.get("by_decision", {})
+        recent_rows = data.get("recent", [])
+
+        if bc or bd:
+            st.markdown("### Breakdown")
+            _ch1, _ch2 = st.columns(2)
+            with _ch1:
+                if bc:
+                    st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>By crop</p>", unsafe_allow_html=True)
+                    fig_crop = go.Figure(go.Bar(
+                        x=list(bc.keys()), y=list(bc.values()),
+                        marker_color=GOLD,
+                        text=list(bc.values()), textposition="outside",
+                    ))
+                    fig_crop.update_layout(plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM,
+                                           height=260, margin=dict(t=20, b=20, l=10, r=10), showlegend=False)
+                    fig_crop.update_xaxes(gridcolor="#2E2820")
+                    fig_crop.update_yaxes(gridcolor="#2E2820", title="sessions")
+                    st.plotly_chart(fig_crop, use_container_width=True)
+            with _ch2:
+                if bd:
+                    st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>By district</p>", unsafe_allow_html=True)
+                    fig_dist = go.Figure(go.Bar(
+                        x=list(bd.keys()), y=list(bd.values()),
+                        marker_color=GRAIN,
+                        text=list(bd.values()), textposition="outside",
+                    ))
+                    fig_dist.update_layout(plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM,
+                                           height=260, margin=dict(t=20, b=20, l=10, r=10), showlegend=False)
+                    fig_dist.update_xaxes(gridcolor="#2E2820")
+                    fig_dist.update_yaxes(gridcolor="#2E2820", title="sessions")
+                    st.plotly_chart(fig_dist, use_container_width=True)
+
+        if bde:
+            st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>Decisions given</p>", unsafe_allow_html=True)
+            _dec_labels = list(bde.keys())
+            _dec_vals   = list(bde.values())
+            _dec_colors = [DEC.get(k, DEC["UNAVAILABLE"])[0] for k in _dec_labels]
+            _dec_display = [DEC.get(k, DEC["UNAVAILABLE"])[1] for k in _dec_labels]
+            fig_dec = go.Figure(go.Bar(
+                x=_dec_display, y=_dec_vals,
+                marker_color=_dec_colors,
+                text=_dec_vals, textposition="outside",
+            ))
+            fig_dec.update_layout(plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM,
+                                   height=240, margin=dict(t=20, b=20, l=10, r=10), showlegend=False)
+            fig_dec.update_xaxes(gridcolor="#2E2820")
+            fig_dec.update_yaxes(gridcolor="#2E2820", title="sessions")
+            st.plotly_chart(fig_dec, use_container_width=True)
+
+        if recent_rows:
+            lang_counts = {}
+            for _r in recent_rows:
+                _lang = _r.get("language") or "en"
+                lang_counts[_lang] = lang_counts.get(_lang, 0) + 1
+            _lang_labels = {"en": "English", "dag": "Dagbani", "hau": "Hausa"}
+            if lang_counts:
+                st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin:.6rem 0 .4rem 0'>Language used (recent sessions)</p>", unsafe_allow_html=True)
+                lang_html = " &nbsp; ".join(
+                    f"<span style='background:{PANEL};border:1px solid #2E2820;border-radius:6px;padding:.3rem .8rem;font-size:.83rem'>"
+                    f"<b style='color:{CREAM}'>{_lang_labels.get(k, k)}</b> "
+                    f"<span style='color:{GOLD};font-weight:700'>{v}</span></span>"
+                    for k, v in sorted(lang_counts.items(), key=lambda x: -x[1])
+                )
+                st.markdown(lang_html, unsafe_allow_html=True)
     else:
         with top[0]:
             st.warning("No live sessions yet — dial the USSD code to see one appear here.")
@@ -388,210 +448,3 @@ with tab3:
         closing this gap is a defined next step. <span style='color:{MUTE}'>(The Ghana Commodity Exchange
         warehouses we mapped accept maize and sorghum — millet has no verified storage in our registry,
         which is a visibility gap in itself.)</span></div>""", unsafe_allow_html=True)
-
-
-with tab4:
-    st.markdown(f"<h2 style='color:{GOLD}'>Data &amp; Models</h2>", unsafe_allow_html=True)
-
-    # ── Data at a glance ───────────────────────────────────────────────────────
-    _da, _db, _dc, _dd = st.columns(4)
-    for _col, _val, _lbl in zip(
-        [_da, _db, _dc, _dd],
-        ["1,744", "17 yrs", "5", "3"],
-        ["price records", "Jan 2006 – Jul 2023", "markets", "commodities"],
-    ):
-        with _col:
-            st.markdown(f"""<div class='panel' style='text-align:center;padding:.9rem .5rem'>
-                <div style='color:{GOLD};font-size:1.8rem;font-weight:700;line-height:1'>{_val}</div>
-                <div style='color:{MUTE};font-size:.8rem;margin-top:.3rem'>{_lbl}</div>
-            </div>""", unsafe_allow_html=True)
-
-    st.markdown(f"<p style='color:{MUTE};font-size:.82rem;margin-top:.4rem'>Sources: WFP Price Monitor (wholesale prices) &nbsp;·&nbsp; FAO Ghana Exchange Rates &nbsp;·&nbsp; FAO Producer Price Index</p>", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ── Training split (visual bar) ────────────────────────────────────────────
-    st.markdown(f"<h3 style='color:{CREAM}'>Training Split &amp; Features</h3>", unsafe_allow_html=True)
-    _split_fig = go.Figure(go.Bar(
-        x=[70, 15, 15], y=["Data split"],
-        orientation='h',
-        marker_color=[GREEN, AMBER, RED],
-        text=["Train · 70%  (Jan 2006 – Aug 2018)", "Val · 15%  (Aug 2018 – Mar 2021)", "Test · 15%  (Mar 2021 – Jul 2023)"],
-        textposition="inside", insidetextanchor="middle",
-        hoverinfo="skip",
-    ))
-    _split_fig.update_layout(
-        plot_bgcolor=PANEL, paper_bgcolor=PANEL,
-        font=dict(color=CREAM, size=12),
-        margin=dict(t=10, b=10, l=10, r=10),
-        xaxis=dict(visible=False), yaxis=dict(visible=False),
-        height=70, barmode="stack",
-    )
-    st.plotly_chart(_split_fig, use_container_width=True)
-    st.markdown(f"<p style='color:{MUTE};font-size:.8rem;margin-top:-.5rem'>Chronological — no shuffling, no future data in training.</p>", unsafe_allow_html=True)
-
-    _fc1, _fc2 = st.columns(2)
-    def _chip(text, color): return f"<span style='background:{color}22;color:{color};border:1px solid {color}55;border-radius:4px;padding:.15rem .45rem;font-size:.75rem;margin:.15rem .1rem;display:inline-block'>{text}</span>"
-    with _fc1:
-        st.markdown(f"""<div class='panel'>
-            <b style='color:{GREEN}'>XGBoost</b> <span style='color:{MUTE};font-size:.8rem'>· 22 features</span><br><br>
-            {_chip("price lag 1/2/3", GRAIN)}{_chip("rolling mean", GRAIN)}{_chip("rolling std", GRAIN)}{_chip("% change", GRAIN)}
-            {_chip("month sin/cos", GRAIN)}{_chip("harvest flag", GRAIN)}{_chip("lean flag", GRAIN)}{_chip("price vs annual", GRAIN)}
-            {_chip("price YoY", GRAIN)}{_chip("exchange rate", GRAIN)}{_chip("PPI", GRAIN)}
-            {_chip("market (OHE ×5)", GOLD)}{_chip("commodity (OHE ×3)", GOLD)}
-        </div>""", unsafe_allow_html=True)
-    with _fc2:
-        st.markdown(f"""<div class='panel'>
-            <b style='color:{AMBER}'>LSTM</b> <span style='color:{MUTE};font-size:.8rem'>· 10 features &nbsp;·&nbsp; 12-month window</span><br><br>
-            {_chip("price", GRAIN)}{_chip("price lag 1/2/3", GRAIN)}{_chip("rolling mean", GRAIN)}{_chip("rolling std", GRAIN)}
-            {_chip("month sin/cos", GRAIN)}{_chip("exchange rate", GRAIN)}{_chip("PPI", GRAIN)}
-            <br><br><span style='color:{MUTE};font-size:.78rem'>LSTM takes sequential price history — no OHE market/commodity or season flags needed; seasonality is captured through the cyclical month encoding and the sequence itself.</span>
-        </div>""", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ── Label derivation ───────────────────────────────────────────────────────
-    st.markdown(f"<h3 style='color:{CREAM}'>How Decision Labels Were Created</h3>", unsafe_allow_html=True)
-    st.markdown(f"""<div class='panel'>
-        <span style='color:{MUTE};font-size:.85rem'>Every row in the dataset was labelled using this formula before training:</span><br><br>
-        <div style='background:{INK};border-radius:6px;padding:.7rem 1.1rem;font-family:monospace;font-size:.88rem;color:{CREAM};line-height:2'>
-            net_per_bag &nbsp;= &nbsp;(price_next_month &minus; price_current)
-            &nbsp;&minus;&nbsp; (GHS&nbsp;0.80 &times; 1.5 months)
-            &nbsp;&minus;&nbsp; <span style='color:{AMBER}'>transport estimate</span>
-        </div><br>
-        <div style='display:flex;gap:.75rem'>
-            <div style='flex:1;background:{INK};border-left:3px solid {GREEN};border-radius:4px;padding:.6rem .9rem;text-align:center'>
-                <b style='color:{GREEN};font-size:1rem'>STORE</b><br>
-                <span style='color:{MUTE};font-size:.8rem'>net &gt; GHS 20</span>
-            </div>
-            <div style='flex:1;background:{INK};border-left:3px solid {AMBER};border-radius:4px;padding:.6rem .9rem;text-align:center'>
-                <b style='color:{AMBER};font-size:1rem'>SELL_PARTIAL</b><br>
-                <span style='color:{MUTE};font-size:.8rem'>GHS 5 &lt; net ≤ GHS 20</span>
-            </div>
-            <div style='flex:1;background:{INK};border-left:3px solid {RED};border-radius:4px;padding:.6rem .9rem;text-align:center'>
-                <b style='color:{RED};font-size:1rem'>SELL_NOW</b><br>
-                <span style='color:{MUTE};font-size:.8rem'>net ≤ GHS 5</span>
-            </div>
-        </div>
-    </div>""", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ── Imbalance method comparison ────────────────────────────────────────────
-    st.markdown(f"<h3 style='color:{CREAM}'>Handling Class Imbalance — Method Comparison</h3>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color:{MUTE};font-size:.83rem'>SELL_NOW dominates the dataset. Two approaches were tested; the winner was used for final training.</p>", unsafe_allow_html=True)
-    _im1, _im2 = st.columns(2)
-    with _im1:
-        st.markdown(f"""<div class='panel' style='border:1px solid {MUTE}55;opacity:.7'>
-            <div style='display:flex;justify-content:space-between;align-items:center'>
-                <b style='color:{MUTE}'>class_weight='balanced'</b>
-                <span style='color:{MUTE};font-size:.75rem;background:{INK};padding:.2rem .5rem;border-radius:4px'>Not selected</span>
-            </div><br>
-            <span style='color:{MUTE};font-size:.85rem'>Tells the model to penalise errors on minority classes more during training. No new data created — just reweights the loss function.</span><br><br>
-            <span style='color:{MUTE};font-size:.8rem'>Simple · no data augmentation · lower validation F1</span>
-        </div>""", unsafe_allow_html=True)
-    with _im2:
-        st.markdown(f"""<div class='panel' style='border:2px solid {GREEN}'>
-            <div style='display:flex;justify-content:space-between;align-items:center'>
-                <b style='color:{GREEN}'>SMOTE</b>
-                <span style='color:{GREEN};font-size:.75rem;background:{GREEN}22;padding:.2rem .5rem;border-radius:4px'>✓ Selected</span>
-            </div><br>
-            <span style='color:{CREAM};font-size:.85rem'>Synthesises new minority-class examples by interpolating between existing ones — so the model genuinely sees more STORE and SELL_PARTIAL cases.</span><br><br>
-            <span style='color:{MUTE};font-size:.8rem'>Higher validation F1 · balanced training set · selected for final run</span>
-        </div>""", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ── Classifier comparison ──────────────────────────────────────────────────
-    st.markdown(f"<h3 style='color:{CREAM}'>5 Classifiers Compared — Why XGBoost Won</h3>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color:{MUTE};font-size:.83rem'>All five trained with the same split and SMOTE. Model selected on <b>validation F1</b> — not test F1 — to avoid peeking at held-out data.</p>", unsafe_allow_html=True)
-    _cls_names  = ["XGBoost", "Random Forest", "Gradient Boosting", "Decision Tree", "Logistic Regression"]
-    _val_f1s    = [0.3565, 0.3190, 0.3248, 0.2865, 0.2086]
-    _test_f1s   = [0.2464, 0.3477, 0.1920, 0.2356, 0.3064]
-    _bar_colors = [GREEN if n == "XGBoost" else GRAIN for n in _cls_names]
-    _fig_cls = go.Figure()
-    _fig_cls.add_trace(go.Bar(
-        x=_cls_names, y=_val_f1s, name="Validation F1 (selection basis)",
-        marker_color=_bar_colors, opacity=0.95,
-        text=[f"{v:.3f}" for v in _val_f1s], textposition="outside",
-    ))
-    _fig_cls.add_trace(go.Bar(
-        x=_cls_names, y=_test_f1s, name="Test F1 (held-out)",
-        marker_color=_bar_colors, opacity=0.4,
-        text=[f"{v:.3f}" for v in _test_f1s], textposition="outside",
-    ))
-    _fig_cls.update_layout(
-        barmode="group", plot_bgcolor=PANEL, paper_bgcolor=PANEL,
-        font=dict(color=CREAM), margin=dict(t=30, b=10, l=10, r=10),
-        legend=dict(bgcolor=INK, bordercolor=MUTE, borderwidth=1),
-        yaxis=dict(title="Macro F1", gridcolor=INK, range=[0, 0.50]),
-        xaxis=dict(gridcolor=INK),
-        height=300,
-    )
-    _fig_cls.add_annotation(x="XGBoost", y=0.3565 + 0.06, text="Selected", showarrow=False,
-                            font=dict(color=GREEN, size=11))
-    st.plotly_chart(_fig_cls, use_container_width=True)
-    with st.expander("Why macro F1 and not accuracy?"):
-        st.markdown(f"<span style='color:{MUTE}'>With imbalanced classes, a model that always predicts SELL_NOW gets high accuracy but misses STORE and SELL_PARTIAL entirely. <b style='color:{CREAM}'>Macro F1</b> averages the F1 score equally across all three classes — the model only scores well if it learns all three.</span>", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ── Forecast model comparison ──────────────────────────────────────────────
-    st.markdown(f"<h3 style='color:{CREAM}'>3 Forecast Models Compared — Why LSTM Won</h3>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color:{MUTE};font-size:.83rem'>Lower MAE = better. Tree models treat each month independently; LSTM reads the full 12-month sequence.</p>", unsafe_allow_html=True)
-    _fcast_models = ["RF Regressor", "XGBoost Regressor", "LSTM"]
-    _fcast_maes   = [347.85, 340.25, 280.29]
-    _fcast_colors = [MUTE, MUTE, GREEN]
-    _fig_fcast = go.Figure(go.Bar(
-        x=_fcast_maes, y=_fcast_models,
-        orientation='h',
-        marker_color=_fcast_colors,
-        text=[f"MAE  {v:.0f} GHS" for v in _fcast_maes],
-        textposition="outside",
-    ))
-    _fig_fcast.update_layout(
-        plot_bgcolor=PANEL, paper_bgcolor=PANEL,
-        font=dict(color=CREAM), margin=dict(t=20, b=20, l=10, r=80),
-        xaxis=dict(title="Mean Absolute Error (GHS) — lower is better", gridcolor=INK),
-        yaxis=dict(gridcolor=INK),
-        height=220,
-    )
-    _fig_fcast.add_annotation(x=280.29 + 12, y="LSTM", text="Selected", showarrow=False,
-                              font=dict(color=GREEN, size=11), xanchor="left")
-    st.plotly_chart(_fig_fcast, use_container_width=True)
-
-    st.divider()
-
-    # ── LSTM performance ───────────────────────────────────────────────────────
-    st.markdown(f"<h3 style='color:{CREAM}'>LSTM Forecast Performance on Test Set</h3>", unsafe_allow_html=True)
-    _lc1, _lc2, _lc3, _lc4, _lc5 = st.columns(5)
-    _lstm_metrics = [
-        ("MAE", "GHS 280", "Mean absolute error"),
-        ("RMSE", "GHS 312", "Root mean square error"),
-        ("MAPE", "47.65%", "Mean abs. % error"),
-        ("R²", "−3.15", "Underperforms flat mean"),
-        ("Dir. Accuracy", "61.1%", "Correct price direction"),
-    ]
-    for _col, (_label, _value, _note) in zip([_lc1, _lc2, _lc3, _lc4, _lc5], _lstm_metrics):
-        with _col:
-            _c = RED if _label in ("MAE", "RMSE", "MAPE", "R²") else AMBER
-            st.markdown(f"""<div class='panel' style='text-align:center;padding:.7rem .4rem'>
-                <div style='color:{MUTE};font-size:.7rem;text-transform:uppercase'>{_label}</div>
-                <div style='color:{_c};font-size:1.25rem;font-weight:700;margin:.2rem 0'>{_value}</div>
-                <div style='color:{MUTE};font-size:.68rem'>{_note}</div>
-            </div>""", unsafe_allow_html=True)
-
-    _sh1, _sh2 = st.columns(2)
-    with _sh1:
-        st.markdown(f"""<div class='panel' style='border-left:4px solid {AMBER};margin-top:.75rem'>
-            <b style='color:{AMBER}'>Why errors are large</b><br>
-            <span style='color:{MUTE};font-size:.85rem'>Training range: <b style='color:{CREAM}'>GHS 95–200</b><br>
-            Current prices: <b style='color:{CREAM}'>GHS 490–760</b> &nbsp;(3× higher)<br>
-            Caused by post-2020 inflation &amp; 2022 debt crisis. The model has never seen these price levels.</span>
-        </div>""", unsafe_allow_html=True)
-    with _sh2:
-        st.markdown(f"""<div class='panel' style='border-left:4px solid {GREEN};margin-top:.75rem'>
-            <b style='color:{GREEN}'>What still works</b><br>
-            <span style='color:{MUTE};font-size:.85rem'>Directional accuracy: <b style='color:{CREAM}'>61.1%</b> — the model correctly reads whether prices will rise or fall more often than not. Re-training with post-2023 data is the single fix that would close this gap.</span>
-        </div>""", unsafe_allow_html=True)
-
