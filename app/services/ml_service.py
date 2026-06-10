@@ -25,13 +25,6 @@ MARKET_FOR_DISTRICT = {
 VALID_MARKETS     = set(_VALID_MARKETS_LIST)
 VALID_COMMODITIES = set(_VALID_COMMODITIES_LIST)
 
-# Harvest (Oct-Dec): prices low, recovery ahead → positive uplift.
-# Lean (Jun-Aug): prices near peak, little upside to storing → negative uplift.
-SEASONAL_UPLIFT = {
-    1: 0.05, 2: 0.03, 3: 0.0,  4: -0.03, 5: -0.05, 6: -0.08,
-    7: -0.08, 8: -0.05, 9: 0.08, 10: 0.22, 11: 0.20, 12: 0.12,
-}
-
 _ml_ready = False
 
 def _load_ml():
@@ -39,7 +32,7 @@ def _load_ml():
     if _ml_ready:
         return True
     try:
-        from app.ml import predict as _predict   # noqa: F401
+        import app.ml.predict  # noqa: F401
         _ml_ready = True
         return True
     except Exception:
@@ -152,14 +145,11 @@ def _get_lstm_sequence(db: Session) -> pd.DataFrame:
     return df.dropna(subset=LSTM_FEAT_COLS).reset_index(drop=True)
 
 
-def get_forecast(crop: str, district: str, db: Session, month: int = None) -> dict:
-    import datetime
+def get_forecast(crop: str, district: str, db: Session) -> dict:
     prices = get_recent_prices(crop, district, db)
-    if not prices:
-        return {"forecast_price": 220.0, "current_price": 180.0, "method": "fallback"}
-    current = prices[0]
+    current = prices[0] if prices else None
 
-    if _load_ml():
+    if current is not None and _load_ml():
         try:
             from app.ml.predict import forecast_price
             seq_df = _get_lstm_sequence(db)
@@ -171,15 +161,12 @@ def get_forecast(crop: str, district: str, db: Session, month: int = None) -> di
                     "method":         "lstm",
                 }
         except Exception:
-            _log.exception("[ml_service] LSTM forecast failed, falling back to heuristic")
+            _log.exception("[ml_service] LSTM forecast failed")
 
-    if month is None:
-        month = datetime.datetime.now().month
-    uplift = SEASONAL_UPLIFT.get(month, 0.0)
     return {
-        "forecast_price": round(current * (1 + uplift), 2),
+        "forecast_price": current,
         "current_price":  current,
-        "method":         "seasonal_heuristic",
+        "method":         "fallback",
     }
 
 
@@ -196,8 +183,8 @@ def get_recommendation(
 ) -> dict:
     market        = MARKET_FOR_DISTRICT.get(district, "Tamale")
     current_price = get_current_price(crop, district, db)
-    forecast_data = get_forecast(crop, district, db, month=month)
-    forecast_price = forecast_data.get("forecast_price", current_price * 1.25)
+    forecast_data = get_forecast(crop, district, db)
+    forecast_price = forecast_data.get("forecast_price") or current_price
 
     decision_data = calculate_net_return(
         current_price              = current_price,
@@ -217,7 +204,8 @@ def get_recommendation(
             from app.ml.predict import predict_decision
             import datetime
 
-            month = datetime.datetime.now().month
+            if month is None:
+                month = datetime.datetime.now().month
             macro = _get_macro_features(db, crop)
 
             prices = get_recent_prices(crop, district, db, n=13)

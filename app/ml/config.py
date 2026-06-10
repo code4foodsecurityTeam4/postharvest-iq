@@ -10,7 +10,6 @@ FEATURE_COLUMNS_PATH       = os.path.join(MODELS_DIR, "feature_columns.pkl")
 LSTM_PATH                  = os.path.join(MODELS_DIR, "lstm_price_forecaster.pt")
 LSTM_SCALER_PATH           = os.path.join(MODELS_DIR, "lstm_scaler.pkl")
 PRICE_SCALER_PATH          = os.path.join(MODELS_DIR, "price_scaler.pkl")
-FLAT_SCALER_PATH           = os.path.join(MODELS_DIR, "flat_scaler.pkl")
 METADATA_PATH              = os.path.join(MODELS_DIR, "model_metadata.json")
 
 # must match training notebook exactly — order is significant
