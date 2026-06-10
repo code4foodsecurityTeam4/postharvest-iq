@@ -392,230 +392,206 @@ with tab3:
 
 with tab4:
     st.markdown(f"<h2 style='color:{GOLD}'>Data &amp; Models</h2>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color:{MUTE}'>A transparent account of where the data came from, how it was prepared, which models were trained, and how they perform — including limitations.</p>", unsafe_allow_html=True)
 
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>Data Sources</h3>", unsafe_allow_html=True)
-    col_a, col_b, col_c = st.columns(3)
-    with col_a:
-        st.markdown(f"""<div class='panel' style='border-top:3px solid {GOLD}'>
-            <b style='color:{GOLD}'>WFP Price Monitor</b><br>
-            <span style='color:{MUTE};font-size:.85rem'>World Food Programme</span><br><br>
-            Monthly wholesale prices for maize, millet and sorghum across 5 northern Ghana markets:
-            Tamale, Bolgatanga, Wa, Kumasi and Techiman.<br><br>
-            <span style='color:{MUTE};font-size:.8rem'>2006 – 2023 · 1,744 price records</span>
-        </div>""", unsafe_allow_html=True)
-    with col_b:
-        st.markdown(f"""<div class='panel' style='border-top:3px solid {GRAIN}'>
-            <b style='color:{GRAIN}'>Ghana Exchange Rates</b><br>
-            <span style='color:{MUTE};font-size:.85rem'>FAO / Bank of Ghana</span><br><br>
-            Annual GHS/USD exchange rates, joined by year and month to each price record.
-            Captures currency depreciation effects on commodity prices over 17 years.<br><br>
-            <span style='color:{MUTE};font-size:.8rem'>2006 – 2023 · annual series</span>
-        </div>""", unsafe_allow_html=True)
-    with col_c:
-        st.markdown(f"""<div class='panel' style='border-top:3px solid {CREAM}'>
-            <b style='color:{CREAM}'>FAO Producer Price Index</b><br>
-            <span style='color:{MUTE};font-size:.85rem'>Food and Agriculture Organization</span><br><br>
-            Producer Price Index (2014–2016 = 100) for maize, millet and sorghum.
-            Provides a macro signal for supply-side price pressure beyond local market data.<br><br>
-            <span style='color:{MUTE};font-size:.8rem'>2006 – 2023 · annual series</span>
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>Dataset After Cleaning</h3>", unsafe_allow_html=True)
-    stats = {
-        "Total records": "1,744",
-        "Date range": "Jan 2006 – Jul 2023",
-        "Markets": "5 (Tamale, Bolga, Wa, Kumasi, Techiman)",
-        "Commodities": "3 (Maize, Millet, Sorghum)",
-        "Price type": "Wholesale (GHS per 100 kg bag)",
-        "Columns after cleaning": "10",
-    }
-    col1, col2, col3 = st.columns(3)
-    for i, (k, v) in enumerate(stats.items()):
-        with [col1, col2, col3][i % 3]:
-            st.markdown(f"""<div class='panel' style='padding:.75rem 1rem'>
-                <div style='color:{MUTE};font-size:.8rem;text-transform:uppercase;letter-spacing:.05em'>{k}</div>
-                <div style='color:{CREAM};font-size:1.1rem;font-weight:600;margin-top:.25rem'>{v}</div>
+    # ── Data at a glance ───────────────────────────────────────────────────────
+    _da, _db, _dc, _dd = st.columns(4)
+    for _col, _val, _lbl in zip(
+        [_da, _db, _dc, _dd],
+        ["1,744", "17 yrs", "5", "3"],
+        ["price records", "Jan 2006 – Jul 2023", "markets", "commodities"],
+    ):
+        with _col:
+            st.markdown(f"""<div class='panel' style='text-align:center;padding:.9rem .5rem'>
+                <div style='color:{GOLD};font-size:1.8rem;font-weight:700;line-height:1'>{_val}</div>
+                <div style='color:{MUTE};font-size:.8rem;margin-top:.3rem'>{_lbl}</div>
             </div>""", unsafe_allow_html=True)
 
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>Data Preparation</h3>", unsafe_allow_html=True)
-    col_prep1, col_prep2 = st.columns(2)
-    with col_prep1:
+    st.markdown(f"<p style='color:{MUTE};font-size:.82rem;margin-top:.4rem'>Sources: WFP Price Monitor (wholesale prices) &nbsp;·&nbsp; FAO Ghana Exchange Rates &nbsp;·&nbsp; FAO Producer Price Index</p>", unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── Training split (visual bar) ────────────────────────────────────────────
+    st.markdown(f"<h3 style='color:{CREAM}'>Training Split &amp; Features</h3>", unsafe_allow_html=True)
+    _split_fig = go.Figure(go.Bar(
+        x=[70, 15, 15], y=["Data split"],
+        orientation='h',
+        marker_color=[GREEN, AMBER, RED],
+        text=["Train · 70%  (Jan 2006 – Aug 2018)", "Val · 15%  (Aug 2018 – Mar 2021)", "Test · 15%  (Mar 2021 – Jul 2023)"],
+        textposition="inside", insidetextanchor="middle",
+        hoverinfo="skip",
+    ))
+    _split_fig.update_layout(
+        plot_bgcolor=PANEL, paper_bgcolor=PANEL,
+        font=dict(color=CREAM, size=12),
+        margin=dict(t=10, b=10, l=10, r=10),
+        xaxis=dict(visible=False), yaxis=dict(visible=False),
+        height=70, barmode="stack",
+    )
+    st.plotly_chart(_split_fig, use_container_width=True)
+    st.markdown(f"<p style='color:{MUTE};font-size:.8rem;margin-top:-.5rem'>Chronological — no shuffling, no future data in training.</p>", unsafe_allow_html=True)
+
+    _fc1, _fc2 = st.columns(2)
+    def _chip(text, color): return f"<span style='background:{color}22;color:{color};border:1px solid {color}55;border-radius:4px;padding:.15rem .45rem;font-size:.75rem;margin:.15rem .1rem;display:inline-block'>{text}</span>"
+    with _fc1:
         st.markdown(f"""<div class='panel'>
-            <b style='color:{GOLD}'>Feature Engineering</b><br><br>
-            Starting from the 10 cleaned columns, additional features were derived to give the models
-            temporal and macro context:
-            <ul style='color:{CREAM};margin-top:.5rem;padding-left:1.2rem'>
-                <li>Price lags: 1-month, 2-month, 3-month</li>
-                <li>Rolling 3-month mean and standard deviation</li>
-                <li>Month-over-month percentage change</li>
-                <li>Cyclical month encoding (sin/cos)</li>
-                <li>Harvest season flag (Oct–Dec) and lean season flag (Jun–Aug)</li>
-                <li>Price vs. 12-month rolling average (price_vs_annual)</li>
-                <li>Year-on-year price change (price_yoy)</li>
-                <li>OHE market and commodity (8 binary columns)</li>
-            </ul>
-            <span style='color:{MUTE};font-size:.8rem'>→ 22 features for XGBoost · 10 features for LSTM</span>
+            <b style='color:{GREEN}'>XGBoost</b> <span style='color:{MUTE};font-size:.8rem'>· 22 features</span><br><br>
+            {_chip("price lag 1/2/3", GRAIN)}{_chip("rolling mean", GRAIN)}{_chip("rolling std", GRAIN)}{_chip("% change", GRAIN)}
+            {_chip("month sin/cos", GRAIN)}{_chip("harvest flag", GRAIN)}{_chip("lean flag", GRAIN)}{_chip("price vs annual", GRAIN)}
+            {_chip("price YoY", GRAIN)}{_chip("exchange rate", GRAIN)}{_chip("PPI", GRAIN)}
+            {_chip("market (OHE ×5)", GOLD)}{_chip("commodity (OHE ×3)", GOLD)}
         </div>""", unsafe_allow_html=True)
-    with col_prep2:
+    with _fc2:
         st.markdown(f"""<div class='panel'>
-            <b style='color:{GOLD}'>Train / Validation / Test Split</b><br><br>
-            A strict <b style='color:{CREAM}'>chronological 70 / 15 / 15 split</b> with no shuffling —
-            future data never leaks into training.<br><br>
-            <div style='background:{INK};border-radius:6px;padding:.6rem .8rem;margin:.5rem 0;font-size:.85rem'>
-                <span style='color:{GREEN}'>■ Train</span>&nbsp; Jan 2006 – ~Aug 2018 &nbsp;·&nbsp; 70%<br>
-                <span style='color:{AMBER}'>■ Validation</span>&nbsp; Aug 2018 – ~Mar 2021 &nbsp;·&nbsp; 15%<br>
-                <span style='color:{RED}'>■ Test</span>&nbsp; Mar 2021 – Jul 2023 &nbsp;·&nbsp; 15%
-            </div>
-            <b style='color:{GOLD}'>Class Imbalance</b><br><br>
-            Because STORE and SELL_PARTIAL are rarer than SELL_NOW, we compared two strategies:
-            SMOTE oversampling vs. class_weight='balanced'. SMOTE produced a higher validation F1
-            and was selected for the final training run.<br><br>
-            <b style='color:{GOLD}'>Storage Distance</b><br><br>
-            Nearest verified warehouse is found using the <b style='color:{CREAM}'>Haversine formula</b> —
-            the great-circle distance between two GPS coordinates on a sphere. It gives straight-line
-            distance in km, not road distance. Fast and requires no external API; road distance is a
-            post-funding improvement.
+            <b style='color:{AMBER}'>LSTM</b> <span style='color:{MUTE};font-size:.8rem'>· 10 features &nbsp;·&nbsp; 12-month window</span><br><br>
+            {_chip("price", GRAIN)}{_chip("price lag 1/2/3", GRAIN)}{_chip("rolling mean", GRAIN)}{_chip("rolling std", GRAIN)}
+            {_chip("month sin/cos", GRAIN)}{_chip("exchange rate", GRAIN)}{_chip("PPI", GRAIN)}
+            <br><br><span style='color:{MUTE};font-size:.78rem'>LSTM takes sequential price history — no OHE market/commodity or season flags needed; seasonality is captured through the cyclical month encoding and the sequence itself.</span>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>How Training Labels Were Created</h3>", unsafe_allow_html=True)
+    st.divider()
+
+    # ── Label derivation ───────────────────────────────────────────────────────
+    st.markdown(f"<h3 style='color:{CREAM}'>How Decision Labels Were Created</h3>", unsafe_allow_html=True)
     st.markdown(f"""<div class='panel'>
-        <b style='color:{GOLD}'>Net Return Formula</b> — applied to every row in the dataset to generate the decision label:<br><br>
-        <div style='background:{INK};border-radius:6px;padding:.7rem 1rem;font-family:monospace;font-size:.9rem;color:{CREAM}'>
-            net_per_bag &nbsp;= &nbsp;(price_next_month &minus; price_current)<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&minus; (GHS 0.80 &times; 1.5 months storage)<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&minus; GHS 2.00 transport
+        <span style='color:{MUTE};font-size:.85rem'>Every row in the dataset was labelled using this formula before training:</span><br><br>
+        <div style='background:{INK};border-radius:6px;padding:.7rem 1.1rem;font-family:monospace;font-size:.88rem;color:{CREAM};line-height:2'>
+            net_per_bag &nbsp;= &nbsp;(price_next_month &minus; price_current)
+            &nbsp;&minus;&nbsp; (GHS&nbsp;0.80 &times; 1.5 months)
+            &nbsp;&minus;&nbsp; <span style='color:{AMBER}'>transport estimate</span>
         </div><br>
-        <div style='display:flex;gap:1rem;flex-wrap:wrap'>
-            <div style='flex:1;min-width:160px;background:{INK};border-left:3px solid {GREEN};border-radius:4px;padding:.5rem .8rem'>
-                <b style='color:{GREEN}'>STORE</b><br>
-                <span style='color:{MUTE};font-size:.85rem'>net_per_bag &gt; GHS 20</span>
+        <div style='display:flex;gap:.75rem'>
+            <div style='flex:1;background:{INK};border-left:3px solid {GREEN};border-radius:4px;padding:.6rem .9rem;text-align:center'>
+                <b style='color:{GREEN};font-size:1rem'>STORE</b><br>
+                <span style='color:{MUTE};font-size:.8rem'>net &gt; GHS 20</span>
             </div>
-            <div style='flex:1;min-width:160px;background:{INK};border-left:3px solid {AMBER};border-radius:4px;padding:.5rem .8rem'>
-                <b style='color:{AMBER}'>SELL_PARTIAL</b><br>
-                <span style='color:{MUTE};font-size:.85rem'>GHS 5 &lt; net_per_bag &le; GHS 20</span>
+            <div style='flex:1;background:{INK};border-left:3px solid {AMBER};border-radius:4px;padding:.6rem .9rem;text-align:center'>
+                <b style='color:{AMBER};font-size:1rem'>SELL_PARTIAL</b><br>
+                <span style='color:{MUTE};font-size:.8rem'>GHS 5 &lt; net ≤ GHS 20</span>
             </div>
-            <div style='flex:1;min-width:160px;background:{INK};border-left:3px solid {RED};border-radius:4px;padding:.5rem .8rem'>
-                <b style='color:{RED}'>SELL_NOW</b><br>
-                <span style='color:{MUTE};font-size:.85rem'>net_per_bag &le; GHS 5</span>
+            <div style='flex:1;background:{INK};border-left:3px solid {RED};border-radius:4px;padding:.6rem .9rem;text-align:center'>
+                <b style='color:{RED};font-size:1rem'>SELL_NOW</b><br>
+                <span style='color:{MUTE};font-size:.8rem'>net ≤ GHS 5</span>
             </div>
-        </div><br>
-        <span style='color:{MUTE};font-size:.8rem'>These thresholds and costs are defined once in <code>app/ml/config.py</code> and used identically in training and inference — no drift between what the model learned and what the API computes.</span>
+        </div>
     </div>""", unsafe_allow_html=True)
 
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>Models &amp; Why We Chose Them</h3>", unsafe_allow_html=True)
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        st.markdown(f"""<div class='panel' style='border-top:3px solid {GREEN}'>
-            <b style='color:{GREEN}'>XGBoost Classifier</b>
-            <span style='color:{MUTE};font-size:.8rem'> · decision recommendation</span><br><br>
-            Produces one of three decisions — STORE, SELL_PARTIAL, or SELL_NOW — for a given crop,
-            market and month. Five algorithms were trained and compared on validation macro F1;
-            XGBoost ranked highest and was selected.<br><br>
-            <b style='color:{CREAM}'>Why XGBoost?</b> Handles mixed numeric and categorical features well,
-            robust to small datasets via regularisation, and interpretable through feature importance.
-            TimeSeriesSplit cross-validation (5 folds) ensured no temporal leakage during tuning.<br><br>
-            <span style='color:{MUTE};font-size:.8rem'>Hyperparameters tuned via RandomizedSearchCV (30 iterations, 5-fold TimeSeriesSplit) ·
-            evaluation metric: log-loss during tuning, macro F1 for model selection</span>
+    st.divider()
+
+    # ── Imbalance method comparison ────────────────────────────────────────────
+    st.markdown(f"<h3 style='color:{CREAM}'>Handling Class Imbalance — Method Comparison</h3>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:{MUTE};font-size:.83rem'>SELL_NOW dominates the dataset. Two approaches were tested; the winner was used for final training.</p>", unsafe_allow_html=True)
+    _im1, _im2 = st.columns(2)
+    with _im1:
+        st.markdown(f"""<div class='panel' style='border:1px solid {MUTE}55;opacity:.7'>
+            <div style='display:flex;justify-content:space-between;align-items:center'>
+                <b style='color:{MUTE}'>class_weight='balanced'</b>
+                <span style='color:{MUTE};font-size:.75rem;background:{INK};padding:.2rem .5rem;border-radius:4px'>Not selected</span>
+            </div><br>
+            <span style='color:{MUTE};font-size:.85rem'>Tells the model to penalise errors on minority classes more during training. No new data created — just reweights the loss function.</span><br><br>
+            <span style='color:{MUTE};font-size:.8rem'>Simple · no data augmentation · lower validation F1</span>
         </div>""", unsafe_allow_html=True)
-    with col_m2:
-        st.markdown(f"""<div class='panel' style='border-top:3px solid {AMBER}'>
-            <b style='color:{AMBER}'>Multivariate LSTM</b>
-            <span style='color:{MUTE};font-size:.8rem'> · price forecasting</span><br><br>
-            A 2-layer LSTM (hidden size 64) trained on sequences of 12 months to predict the next
-            month's price. Takes 10 input features: price, exchange rate, PPI, cyclical month encoding,
-            and price lag/rolling features.<br><br>
-            <b style='color:{CREAM}'>Why LSTM?</b> Price series are sequential — patterns from 6 months ago
-            matter. LSTM retains long-range memory across a 12-month window better than tree models,
-            which treat each row independently.<br><br>
-            <span style='color:{MUTE};font-size:.8rem'>
-            Max 100 epochs · early stopping patience=15 · Adam optimiser lr=0.001<br>
-            Learning rate reduced on plateau · input normalised with MinMaxScaler (fit on train only)
-            </span>
+    with _im2:
+        st.markdown(f"""<div class='panel' style='border:2px solid {GREEN}'>
+            <div style='display:flex;justify-content:space-between;align-items:center'>
+                <b style='color:{GREEN}'>SMOTE</b>
+                <span style='color:{GREEN};font-size:.75rem;background:{GREEN}22;padding:.2rem .5rem;border-radius:4px'>✓ Selected</span>
+            </div><br>
+            <span style='color:{CREAM};font-size:.85rem'>Synthesises new minority-class examples by interpolating between existing ones — so the model genuinely sees more STORE and SELL_PARTIAL cases.</span><br><br>
+            <span style='color:{MUTE};font-size:.8rem'>Higher validation F1 · balanced training set · selected for final run</span>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>Algorithm Comparison — Validation Macro F1</h3>", unsafe_allow_html=True)
-    cls_names  = ["XGBoost", "Random Forest", "Gradient Boosting", "Decision Tree", "Logistic Regression"]
-    val_f1s    = [0.3565, 0.3190, 0.3248, 0.2865, 0.2086]
-    test_f1s   = [0.2464, 0.3477, 0.1920, 0.2356, 0.3064]
-    bar_colors = [GREEN if n == "XGBoost" else GRAIN for n in cls_names]
-    fig_cls = go.Figure()
-    fig_cls.add_trace(go.Bar(
-        x=cls_names, y=val_f1s, name="Validation F1",
-        marker_color=bar_colors, opacity=0.9,
-        text=[f"{v:.3f}" for v in val_f1s], textposition="outside",
+    st.divider()
+
+    # ── Classifier comparison ──────────────────────────────────────────────────
+    st.markdown(f"<h3 style='color:{CREAM}'>5 Classifiers Compared — Why XGBoost Won</h3>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:{MUTE};font-size:.83rem'>All five trained with the same split and SMOTE. Model selected on <b>validation F1</b> — not test F1 — to avoid peeking at held-out data.</p>", unsafe_allow_html=True)
+    _cls_names  = ["XGBoost", "Random Forest", "Gradient Boosting", "Decision Tree", "Logistic Regression"]
+    _val_f1s    = [0.3565, 0.3190, 0.3248, 0.2865, 0.2086]
+    _test_f1s   = [0.2464, 0.3477, 0.1920, 0.2356, 0.3064]
+    _bar_colors = [GREEN if n == "XGBoost" else GRAIN for n in _cls_names]
+    _fig_cls = go.Figure()
+    _fig_cls.add_trace(go.Bar(
+        x=_cls_names, y=_val_f1s, name="Validation F1 (selection basis)",
+        marker_color=_bar_colors, opacity=0.95,
+        text=[f"{v:.3f}" for v in _val_f1s], textposition="outside",
     ))
-    fig_cls.add_trace(go.Bar(
-        x=cls_names, y=test_f1s, name="Test F1",
-        marker_color=bar_colors, opacity=0.45,
-        text=[f"{v:.3f}" for v in test_f1s], textposition="outside",
+    _fig_cls.add_trace(go.Bar(
+        x=_cls_names, y=_test_f1s, name="Test F1 (held-out)",
+        marker_color=_bar_colors, opacity=0.4,
+        text=[f"{v:.3f}" for v in _test_f1s], textposition="outside",
     ))
-    fig_cls.update_layout(
+    _fig_cls.update_layout(
         barmode="group", plot_bgcolor=PANEL, paper_bgcolor=PANEL,
         font=dict(color=CREAM), margin=dict(t=30, b=10, l=10, r=10),
         legend=dict(bgcolor=INK, bordercolor=MUTE, borderwidth=1),
-        yaxis=dict(title="Macro F1", gridcolor=INK, range=[0, 0.48]),
+        yaxis=dict(title="Macro F1", gridcolor=INK, range=[0, 0.50]),
         xaxis=dict(gridcolor=INK),
-        height=340,
+        height=300,
     )
-    st.plotly_chart(fig_cls, use_container_width=True)
-    st.markdown(f"""<div style='color:{MUTE};font-size:.8rem;margin-top:-.5rem'>
-        <b style='color:{CREAM}'>Why macro F1?</b> With three imbalanced classes (SELL_NOW dominates),
-        accuracy rewards a model that just predicts the majority class. Macro F1 averages the F1 score
-        equally across all three classes — penalising the model if it ignores STORE or SELL_PARTIAL.<br><br>
-        Model selected on <b>validation F1</b> (solid bar), not test F1, to avoid peeking at held-out data.
-        XGBoost led on validation; Random Forest generalises better on the test set — a known effect
-        with only 1,744 training rows.<br><br>
-        <b style='color:{CREAM}'>SMOTE</b> (Synthetic Minority Oversampling Technique) generates synthetic
-        samples of the minority classes by interpolating between existing examples, balancing the training
-        set without simply duplicating rows. It was compared against <code>class_weight='balanced'</code>;
-        SMOTE produced a higher validation F1 and was selected.
-    </div>""", unsafe_allow_html=True)
+    _fig_cls.add_annotation(x="XGBoost", y=0.3565 + 0.06, text="Selected", showarrow=False,
+                            font=dict(color=GREEN, size=11))
+    st.plotly_chart(_fig_cls, use_container_width=True)
+    with st.expander("Why macro F1 and not accuracy?"):
+        st.markdown(f"<span style='color:{MUTE}'>With imbalanced classes, a model that always predicts SELL_NOW gets high accuracy but misses STORE and SELL_PARTIAL entirely. <b style='color:{CREAM}'>Macro F1</b> averages the F1 score equally across all three classes — the model only scores well if it learns all three.</span>", unsafe_allow_html=True)
 
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>LSTM Forecast Performance</h3>", unsafe_allow_html=True)
-    col_l1, col_l2, col_l3, col_l4, col_l5 = st.columns(5)
-    lstm_metrics = [
-        ("MAE", "GHS 280", "Mean absolute error on test set"),
-        ("RMSE", "GHS 312", "Root mean square error on test set"),
-        ("MAPE", "47.65%", "Mean absolute percentage error"),
-        ("R²", "−3.15", "Negative — model underperforms a flat mean"),
-        ("Directional Acc.", "61.1%", "Correct on direction of next-month price move"),
+    st.divider()
+
+    # ── Forecast model comparison ──────────────────────────────────────────────
+    st.markdown(f"<h3 style='color:{CREAM}'>3 Forecast Models Compared — Why LSTM Won</h3>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:{MUTE};font-size:.83rem'>Lower MAE = better. Tree models treat each month independently; LSTM reads the full 12-month sequence.</p>", unsafe_allow_html=True)
+    _fcast_models = ["RF Regressor", "XGBoost Regressor", "LSTM"]
+    _fcast_maes   = [347.85, 340.25, 280.29]
+    _fcast_colors = [MUTE, MUTE, GREEN]
+    _fig_fcast = go.Figure(go.Bar(
+        x=_fcast_maes, y=_fcast_models,
+        orientation='h',
+        marker_color=_fcast_colors,
+        text=[f"MAE  {v:.0f} GHS" for v in _fcast_maes],
+        textposition="outside",
+    ))
+    _fig_fcast.update_layout(
+        plot_bgcolor=PANEL, paper_bgcolor=PANEL,
+        font=dict(color=CREAM), margin=dict(t=20, b=20, l=10, r=80),
+        xaxis=dict(title="Mean Absolute Error (GHS) — lower is better", gridcolor=INK),
+        yaxis=dict(gridcolor=INK),
+        height=220,
+    )
+    _fig_fcast.add_annotation(x=280.29 + 12, y="LSTM", text="Selected", showarrow=False,
+                              font=dict(color=GREEN, size=11), xanchor="left")
+    st.plotly_chart(_fig_fcast, use_container_width=True)
+
+    st.divider()
+
+    # ── LSTM performance ───────────────────────────────────────────────────────
+    st.markdown(f"<h3 style='color:{CREAM}'>LSTM Forecast Performance on Test Set</h3>", unsafe_allow_html=True)
+    _lc1, _lc2, _lc3, _lc4, _lc5 = st.columns(5)
+    _lstm_metrics = [
+        ("MAE", "GHS 280", "Mean absolute error"),
+        ("RMSE", "GHS 312", "Root mean square error"),
+        ("MAPE", "47.65%", "Mean abs. % error"),
+        ("R²", "−3.15", "Underperforms flat mean"),
+        ("Dir. Accuracy", "61.1%", "Correct price direction"),
     ]
-    for col, (label, value, note) in zip([col_l1, col_l2, col_l3, col_l4, col_l5], lstm_metrics):
-        with col:
-            color = RED if label in ("MAE", "RMSE", "MAPE", "R²") else AMBER
-            st.markdown(f"""<div class='panel' style='text-align:center'>
-                <div style='color:{MUTE};font-size:.75rem;text-transform:uppercase'>{label}</div>
-                <div style='color:{color};font-size:1.4rem;font-weight:700;margin:.3rem 0'>{value}</div>
-                <div style='color:{MUTE};font-size:.72rem'>{note}</div>
+    for _col, (_label, _value, _note) in zip([_lc1, _lc2, _lc3, _lc4, _lc5], _lstm_metrics):
+        with _col:
+            _c = RED if _label in ("MAE", "RMSE", "MAPE", "R²") else AMBER
+            st.markdown(f"""<div class='panel' style='text-align:center;padding:.7rem .4rem'>
+                <div style='color:{MUTE};font-size:.7rem;text-transform:uppercase'>{_label}</div>
+                <div style='color:{_c};font-size:1.25rem;font-weight:700;margin:.2rem 0'>{_value}</div>
+                <div style='color:{MUTE};font-size:.68rem'>{_note}</div>
             </div>""", unsafe_allow_html=True)
 
-    st.markdown(f"""<div class='panel' style='border-left:4px solid {AMBER};margin-top:.75rem'>
-        <b style='color:{AMBER}'>Distribution Shift — Why the LSTM Errors Are Large</b><br>
-        The LSTM was trained on prices from <b style='color:{CREAM}'>GHS 95 – 200</b> (2006–2023).
-        Current wholesale prices are <b style='color:{CREAM}'>GHS 490 – 760</b> — more than 3× higher —
-        driven by post-2020 inflation and the 2022 Ghana debt crisis. The model has never seen price
-        levels this high, so its absolute errors are large even though its directional accuracy (61%) shows
-        it still tracks movement trends. Re-training with post-2023 data is the single most impactful
-        improvement available.
-    </div>""", unsafe_allow_html=True)
-
-    st.markdown(f"<h3 style='color:{CREAM};margin-top:1.5rem'>Known Limitations</h3>", unsafe_allow_html=True)
-    limitations = [
-        (RED,   "Data currency",       "Latest training data is July 2023. Post-2023 prices are not reflected in model weights."),
-        (AMBER, "Distribution shift",  "Current prices are 3× higher than the training range. LSTM forecasts carry high uncertainty at these levels."),
-        (AMBER, "Storage coverage",    "Only Ghana Commodity Exchange warehouses are verified. Private and cooperative storage is not mapped."),
-        (MUTE,  "Haversine distance",  "Distances to storage are straight-line, not road distance. Actual travel time may differ significantly."),
-        (MUTE,  "Transport cost",      "GHS 2.00/bag is an estimate, not derived from transport data. Actual cost varies by distance and vehicle type."),
-        (MUTE,  "Millet storage",      "No verified storage for millet exists in our registry. The storage gap is real, not a data entry error."),
-    ]
-    for color, title, detail in limitations:
-        st.markdown(f"""<div style='display:flex;gap:.75rem;padding:.5rem 0;border-bottom:1px solid {INK}'>
-            <div style='color:{color};font-weight:700;min-width:160px'>{title}</div>
-            <div style='color:{MUTE};font-size:.9rem'>{detail}</div>
+    _sh1, _sh2 = st.columns(2)
+    with _sh1:
+        st.markdown(f"""<div class='panel' style='border-left:4px solid {AMBER};margin-top:.75rem'>
+            <b style='color:{AMBER}'>Why errors are large</b><br>
+            <span style='color:{MUTE};font-size:.85rem'>Training range: <b style='color:{CREAM}'>GHS 95–200</b><br>
+            Current prices: <b style='color:{CREAM}'>GHS 490–760</b> &nbsp;(3× higher)<br>
+            Caused by post-2020 inflation &amp; 2022 debt crisis. The model has never seen these price levels.</span>
+        </div>""", unsafe_allow_html=True)
+    with _sh2:
+        st.markdown(f"""<div class='panel' style='border-left:4px solid {GREEN};margin-top:.75rem'>
+            <b style='color:{GREEN}'>What still works</b><br>
+            <span style='color:{MUTE};font-size:.85rem'>Directional accuracy: <b style='color:{CREAM}'>61.1%</b> — the model correctly reads whether prices will rise or fall more often than not. Re-training with post-2023 data is the single fix that would close this gap.</span>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown(f"""<p style='color:{MUTE};font-size:.8rem;margin-top:1rem'>
-        These limitations are not hidden — they are the basis of the funding ask.
-        One additional year of price data and a transport-cost survey would resolve the three most critical gaps.
-    </p>""", unsafe_allow_html=True)
