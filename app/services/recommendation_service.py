@@ -1,4 +1,4 @@
-from app.ml.config import STORE_THRESHOLD, PARTIAL_THRESHOLD
+from app.ml.config import STORE_THRESHOLD, PARTIAL_THRESHOLD, STORAGE_MONTHS, TRANSPORT_COST
 
 
 def calculate_net_return(
@@ -6,8 +6,8 @@ def calculate_net_return(
     forecast_price: float,
     quantity_bags: int,
     storage_cost_per_bag_month: float,
-    storage_months: float = 1.5,
-    transport_cost_per_bag: float = 2.0
+    storage_months: float = STORAGE_MONTHS,
+    transport_cost_per_bag: float = TRANSPORT_COST,
 ) -> dict:
 
     expected_gain  = forecast_price - current_price
