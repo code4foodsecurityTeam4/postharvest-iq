@@ -1,32 +1,5 @@
-"""
-app/services/strings.py
-
-USSD display strings per language.
-
-TRANSLATION STATUS
-------------------
-English ("en") is complete and is the source of truth. Translators for
-Dagbani ("dag") and Hausa ("hau") should replace every value still set to
-"TODO" with the natural spoken-language equivalent of the English string
-shown in the same key under "en".
-
-USSD screens are read on basic feature phones, often aloud. Keep each
-translation short, plain, and in words a farmer uses day to day. Avoid
-jargon and acronyms (say "warehouse", not "GCX"). Spell words out so they
-read naturally when spoken.
-
-Keys whose values contain {placeholders} (like {bags}) MUST keep the
-placeholder exactly as written — only translate the words around it.
-
-NOTE TO TRANSLATORS: the English here was tightened to avoid repetition
-and jargon. Translate the *meaning*, in the way a Northern Ghana cereal
-farmer would actually say it — not word for word.
-"""
 
 STRINGS = {
-    # ---------------------------------------------------------------
-    # ENGLISH — complete, source of truth for translators
-    # ---------------------------------------------------------------
     "en": {
         "welcome":        "Welcome to PostHarvest IQ",
         "select_crop":    "Choose your crop:",
@@ -77,10 +50,6 @@ STRINGS = {
         "invalid":        "Wrong entry. Please try again.",
     },
 
-    # ---------------------------------------------------------------
-    # DAGBANI — translator: replace every "TODO" with the Dagbani for
-    # the English value of the same key above.
-    # ---------------------------------------------------------------
     "dag": {
         "welcome":        "Ni kpem PostHarvest IQ",
         "select_crop":    "Yuli ni fo ŋun dali:",
@@ -123,9 +92,6 @@ STRINGS = {
         "invalid":        "Fo yuli ka nɔŋ. Gbɛ saha.",
     },
 
-    # ---------------------------------------------------------------
-    # HAUSA 
-    # ---------------------------------------------------------------
     "hau": {
         "welcome":        "Barka da zuwa PostHarvest IQ",
         "select_crop":    "Zaɓi amfanin gona:",
@@ -171,11 +137,7 @@ STRINGS = {
 
 
 def t(lang: str, key: str) -> str:
-    """
-    Safe lookup. Falls back to English if a key is missing or still "TODO"
-    in the requested language, so a half-finished translation never shows
-    the literal word "TODO" on a farmer's screen.
-    """
+    """Falls back to English for missing or TODO keys."""
     en = STRINGS["en"]
     table = STRINGS.get(lang, en)
     val = table.get(key)

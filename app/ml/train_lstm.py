@@ -1,12 +1,4 @@
-"""
-app/ml/train_lstm.py
-
-Retraining script for the multivariate LSTM price forecaster.
-Pulls price data from MySQL and retrains the LSTM from scratch.
-
-Run from the project root:
-    python -m app.ml.train_lstm
-"""
+# Run: python -m app.ml.train_lstm
 
 import json
 import numpy as np
@@ -155,7 +147,6 @@ def retrain():
     model.load_state_dict(torch.load(checkpoint, map_location=DEVICE))
     torch.save(model.state_dict(), LSTM_PATH)
 
-    # Evaluate
     model.eval()
     with torch.no_grad():
         preds_sc = model(to_t(Xte)).cpu().numpy()

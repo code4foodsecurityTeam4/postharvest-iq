@@ -1,12 +1,4 @@
-"""
-app/ml/train_xgboost.py
-
-Retraining script for the decision classifier.
-Pulls cleaned data from MySQL, applies the same feature engineering, and retrains all 5 algorithms.
-
-Run from the project root:
-    python -m app.ml.train_xgboost
-"""
+# Run: python -m app.ml.train_xgboost
 
 import json
 import numpy as np
@@ -19,7 +11,6 @@ from sklearn.metrics import f1_score, classification_report
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.utils.class_weight import compute_class_weight
 from imblearn.over_sampling import SMOTE
 from scipy.stats import randint, uniform
 import xgboost as xgb
@@ -172,8 +163,7 @@ def retrain():
         },
     }
     base_models = {
-        'XGBoost':             xgb.XGBClassifier(use_label_encoder=False,
-                                   eval_metric='mlogloss', random_state=SEED),
+        'XGBoost':             xgb.XGBClassifier(eval_metric='mlogloss', random_state=SEED),
         'Random Forest':       RandomForestClassifier(class_weight=CW,
                                    random_state=SEED, n_jobs=-1),
         'Gradient Boosting':   GradientBoostingClassifier(random_state=SEED),
@@ -209,7 +199,6 @@ def retrain():
         target_names=class_names
     ))
 
-    # Save
     joblib.dump(best_res['model'], CLASSIFIER_PATH)
     joblib.dump(preprocessor,      PREPROCESSING_PIPELINE_PATH)
     joblib.dump(label_encoder,     LABEL_ENCODER_PATH)

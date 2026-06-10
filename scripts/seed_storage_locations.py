@@ -1,10 +1,4 @@
-"""
-Seed script for verified GCX warehouse locations.
-Run once to populate the storage_locations table in your local DB.
-
-Usage:
-    python scripts/seed_storage_locations.py
-"""
+# Run once: python scripts/seed_storage_locations.py
 import os
 import sys
 
