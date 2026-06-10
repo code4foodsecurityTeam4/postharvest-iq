@@ -4,7 +4,6 @@ dashboard/streamlit_app.py — PostHarvest IQ
 
 import datetime as _dt
 import os
-import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
@@ -13,7 +12,6 @@ try:
     API_BASE = st.secrets["API_BASE"]
 except Exception:
     API_BASE = os.getenv("API_BASE", "https://postharvest-iq.onrender.com")
-SUMMARY_ENDPOINT = f"{API_BASE}/dashboard/summary"
 ACTIVITY_ENDPOINT = f"{API_BASE}/recommendations/activity"
 STORAGE_ENDPOINT = f"{API_BASE}/storage"
 TIMEOUT = 20
@@ -23,17 +21,8 @@ GOLD, GRAIN, CREAM, MUTE = "#E8A33D", "#D4B483", "#F2E9DC", "#9C8F7A"
 GREEN, RED, AMBER = "#3E8E5A", "#C44536", "#D9820B"
 DEC = {"STORE": (GREEN, "Store"), "SELL_NOW": (RED, "Sell now"),
        "SELL_PARTIAL": (AMBER, "Sell half"), "UNAVAILABLE": (MUTE, "—")}
-_NOW = _dt.datetime.now()
-CURRENT_LABEL = f"{_NOW:%B %Y} (current)"
-MONTHS = [CURRENT_LABEL, "January", "February", "March", "April", "May",
-          "June", "July", "August", "September", "October", "November", "December"]
 DISTRICTS = ["Tamale", "Bolgatanga", "Wa"]
 CROPS = ["Maize", "Millet", "Sorghum"]
-FALLBACK = [
-    {"district": d, "crop": c, "decision": "SELL_NOW", "net_total": n, "current_price": p, "forecast_price": round(p*0.92, 2)}
-    for d in DISTRICTS
-    for c, p, n in [("Maize", 538.46, -925.6), ("Millet", 728.0, -1230.0), ("Sorghum", 741.2, -1250.0)]
-]
 
 STORAGE_FALLBACK = {
     "Tamale":     [{"name": "GCX Tamale Warehouse",  "distance_km": 0.0,  "cost_per_bag": 0.80, "contact_number": "0504444065", "type": "Ghana Commodity Exchange", "district": "Tamale",   "crops": ["Maize", "Sorghum"]}],
@@ -43,16 +32,6 @@ STORAGE_FALLBACK = {
                    {"name": "GCX Tumu Warehouse",    "distance_km": 68.5, "cost_per_bag": 0.80, "contact_number": "0594164424", "type": "Ghana Commodity Exchange", "district": "Tumu",     "crops": ["Maize", "Sorghum"]}],
 }
 
-
-@st.cache_data(ttl=120, show_spinner=False)
-def load_summary(month=None):
-    try:
-        r = requests.get(SUMMARY_ENDPOINT, params=({"month": month} if month else None), timeout=TIMEOUT)
-        r.raise_for_status()
-        rows = r.json().get("summary", [])
-        return (rows, "live") if rows else (FALLBACK, "offline")
-    except Exception:
-        return FALLBACK, "offline"
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -131,11 +110,11 @@ with st.sidebar:
                 f"<p style='color:{MUTE};font-size:.78rem;margin-top:0'>3 crops &nbsp;·&nbsp; Maize, Millet, Sorghum<br>3 districts · Tamale, Bolgatanga, Wa</p>", unsafe_allow_html=True)
 
 
-tab1, tab2, tab3 = st.tabs(["Live Activity", "Recommendations", "Storage"])
+tab1, tab2 = st.tabs(["Live Activity", "Storage"])
 
 with tab1:
-    st.markdown("""<div class='hero'><h1>Live activity</h1>
-    <p>Every farmer session lands here: crop, district, the decision we gave, and when.</p></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class='hero'><h1>Platform Overview</h1>
+    <p>Real-time visibility into every advisory session — crop, district, recommendation issued, and time of contact.</p></div>""", unsafe_allow_html=True)
     data, src = load_activity()
     top = st.columns([3, 1])
     with top[1]:
@@ -143,21 +122,21 @@ with tab1:
             st.cache_data.clear(); st.rerun()
     if data and data.get("total_sessions", 0) > 0:
         with top[0]:
-            st.success(f"Live from the database · {_dt.datetime.now():%H:%M:%S}")
+            st.success(f"Connected · live data · {_dt.datetime.now():%H:%M:%S}")
         c = st.columns(4)
-        c[0].markdown(stat(data["total_sessions"], "decisions delivered"), unsafe_allow_html=True)
+        c[0].markdown(stat(data["total_sessions"], "advisory sessions"), unsafe_allow_html=True)
         c[1].markdown(stat("3", "languages supported"), unsafe_allow_html=True)
-        c[2].markdown(stat(data.get("by_decision", {}).get("SELL_NOW", 0), "told to sell"), unsafe_allow_html=True)
-        c[3].markdown(stat(data.get("by_decision", {}).get("STORE", 0), "told to store"), unsafe_allow_html=True)
+        c[2].markdown(stat(data.get("by_decision", {}).get("SELL_NOW", 0), "sell now"), unsafe_allow_html=True)
+        c[3].markdown(stat(data.get("by_decision", {}).get("STORE", 0), "store"), unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### As it happens")
+        st.markdown("### Recent decisions")
         feed = "".join(
             f"<div class='feedrow'><div><span class='dot' style='background:{DEC.get(r['decision'],DEC['UNAVAILABLE'])[0]}'></span>"
             f"<b>{r['crop']}</b> · {r['district']}</div>"
             f"<div style='color:{MUTE};font-size:.85rem'>{r['phone']}</div>"
             f"<div>{badge(r['decision'])} <span style='color:{MUTE};font-size:.8rem;margin-left:8px'>{ago(r['when'])}</span></div></div>"
             for r in data.get("recent", []))
-        empty_msg = "<p style='padding:1rem'>No sessions yet.</p>"
+        empty_msg = "<p style='padding:1rem'>No sessions recorded yet.</p>"
         st.markdown(f"<div class='panel' style='padding:.3rem 0'>{feed or empty_msg}</div>", unsafe_allow_html=True)
         bc = data.get("by_crop", {})
         bd = data.get("by_district", {})
@@ -165,11 +144,11 @@ with tab1:
         recent_rows = data.get("recent", [])
 
         if bc or bd:
-            st.markdown("### Breakdown")
+            st.markdown("### Usage analysis")
             _ch1, _ch2 = st.columns(2)
             with _ch1:
                 if bc:
-                    st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>By crop</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>Sessions by crop</p>", unsafe_allow_html=True)
                     fig_crop = go.Figure(go.Bar(
                         x=list(bc.keys()), y=list(bc.values()),
                         marker_color=GOLD,
@@ -182,7 +161,7 @@ with tab1:
                     st.plotly_chart(fig_crop, use_container_width=True)
             with _ch2:
                 if bd:
-                    st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>By district</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>Sessions by district</p>", unsafe_allow_html=True)
                     fig_dist = go.Figure(go.Bar(
                         x=list(bd.keys()), y=list(bd.values()),
                         marker_color=GRAIN,
@@ -195,7 +174,7 @@ with tab1:
                     st.plotly_chart(fig_dist, use_container_width=True)
 
         if bde:
-            st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>Decisions given</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem'>Recommendation distribution</p>", unsafe_allow_html=True)
             _dec_labels = list(bde.keys())
             _dec_vals   = list(bde.values())
             _dec_colors = [DEC.get(k, DEC["UNAVAILABLE"])[0] for k in _dec_labels]
@@ -218,7 +197,7 @@ with tab1:
                 lang_counts[_lang] = lang_counts.get(_lang, 0) + 1
             _lang_labels = {"en": "English", "dag": "Dagbani", "hau": "Hausa"}
             if lang_counts:
-                st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin:.6rem 0 .4rem 0'>Language used (recent sessions)</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='color:{GRAIN};font-size:.75rem;letter-spacing:1px;text-transform:uppercase;margin:.6rem 0 .4rem 0'>Language distribution</p>", unsafe_allow_html=True)
                 lang_html = " &nbsp; ".join(
                     f"<span style='background:{PANEL};border:1px solid #2E2820;border-radius:6px;padding:.3rem .8rem;font-size:.83rem'>"
                     f"<b style='color:{CREAM}'>{_lang_labels.get(k, k)}</b> "
@@ -228,177 +207,10 @@ with tab1:
                 st.markdown(lang_html, unsafe_allow_html=True)
     else:
         with top[0]:
-            st.warning("No live sessions yet — dial the USSD code to see one appear here.")
+            st.warning("No sessions recorded yet — dial the USSD code to generate the first advisory.")
 
 
 with tab2:
-    st.markdown(f"""<div class='hero'>
-    <h1>What the engine decides</h1>
-    <p>XGBoost trained across 5 algorithms — best selected by validation F1.
-    9 crop-district pairs, priced live. Switch months to watch the advice shift with the season.</p>
-    </div>""", unsafe_allow_html=True)
-
-    ctl_l, ctl_r = st.columns([4, 1])
-    with ctl_l:
-        sel = st.selectbox(
-            "Season:",
-            MONTHS,
-            index=0,
-            help="Current = live market data. Pick a month to simulate what the engine would say at that point in the season.",
-        )
-    month = None if sel == CURRENT_LABEL else MONTHS.index(sel)
-    rows, src = load_summary(month)
-    df = pd.DataFrame(rows)
-    lab = CURRENT_LABEL if month is None else MONTHS[month]
-    with ctl_r:
-        st.markdown("<div style='margin-top:1.75rem'>", unsafe_allow_html=True)
-        if st.button("↻ Refresh", key="rec_refresh"):
-            st.cache_data.clear(); st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    if src == "live":
-        st.success(f"Live · {lab} · {_dt.datetime.now():%H:%M:%S}")
-    else:
-        st.warning("Showing sample snapshot — API unreachable. Numbers are illustrative.")
-
-    if not df.empty and "decision" in df.columns:
-        sc = st.columns(4)
-        sc[0].markdown(stat(len(df), "crop × district pairs"), unsafe_allow_html=True)
-        sc[1].markdown(stat(int((df["decision"] == "STORE").sum()), "store now"), unsafe_allow_html=True)
-        sc[2].markdown(stat(int((df["decision"] == "SELL_NOW").sum()), "sell now"), unsafe_allow_html=True)
-        sc[3].markdown(stat(int((df["decision"] == "SELL_PARTIAL").sum()), "sell partial"), unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### Decision matrix")
-        st.markdown(f"<p style='color:{MUTE};margin-bottom:1.2rem'>One call per crop per district. Border colour = the recommendation. Net return is on a 20-bag harvest after storage cost.</p>", unsafe_allow_html=True)
-
-        for district in DISTRICTS:
-            d_rows = df[df["district"] == district]
-            st.markdown(f"<p style='color:{GRAIN};font-size:.7rem;letter-spacing:1.5px;text-transform:uppercase;margin:.4rem 0 .5rem 0'>{district}</p>", unsafe_allow_html=True)
-            dc = st.columns(3)
-            for i, crop in enumerate(CROPS):
-                match = d_rows[d_rows["crop"] == crop]
-                if match.empty:
-                    continue
-                r = match.iloc[0]
-                dec = r.get("decision") or "UNAVAILABLE"
-                dec_col, dec_lbl = DEC.get(dec, DEC["UNAVAILABLE"])
-                net = float(r.get("net_total") or 0)
-                net_col = GREEN if net > 0 else RED
-                net_str = f"{'+'if net>0 else ''}GHS {abs(round(net)):,}"
-                cur = cedis(r.get("current_price"))
-                fcast = cedis(r.get("forecast_price"))
-                dc[i].markdown(f"""<div style='background:{PANEL};border:1px solid #2E2820;border-top:3px solid {dec_col};
-                border-radius:10px;padding:1rem 1.1rem;margin-bottom:.7rem'>
-                <div style='font-size:.72rem;color:{MUTE};letter-spacing:1.2px;text-transform:uppercase;margin-bottom:.55rem'>{crop}</div>
-                <span class='pill' style='background:{dec_col}'>{dec_lbl}</span>
-                <div style='margin-top:.9rem;display:grid;grid-template-columns:auto 1fr;row-gap:.25rem;column-gap:.5rem;font-size:.8rem'>
-                  <span style='color:{MUTE}'>Today</span><span style='color:{CREAM};text-align:right'>{cur}</span>
-                  <span style='color:{MUTE}'>Forecast</span><span style='color:{CREAM};text-align:right'>{fcast}</span>
-                  <span style='color:{MUTE}'>Net</span><span style='color:{net_col};font-weight:600;text-align:right'>{net_str}</span>
-                </div></div>""", unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### Net return on 20 bags")
-        st.markdown(f"<p style='color:{MUTE};margin-bottom:.6rem'>Revenue gain or loss from storing until the forecast month, minus GHS 0.80/bag/month storage cost.</p>", unsafe_allow_html=True)
-
-        net_labels = [f"{r['district'][:3]} · {r['crop'][:3]}" for _, r in df.iterrows()]
-        net_values = [float(r.get("net_total") or 0) for _, r in df.iterrows()]
-        bar_colors  = [GREEN if v > 0 else RED for v in net_values]
-        bar_text    = [f"GHS {v:,.0f}" for v in net_values]
-
-        fig_net = go.Figure(go.Bar(
-            x=net_labels, y=net_values,
-            marker_color=bar_colors,
-            text=bar_text, textposition="outside",
-            textfont=dict(color=CREAM, size=10),
-            cliponaxis=False,
-        ))
-        fig_net.add_hline(y=0, line_color=MUTE, line_width=1)
-        fig_net.update_layout(
-            plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM,
-            height=340, margin=dict(t=40, b=10, l=10, r=10),
-            showlegend=False, yaxis_title="GHS",
-        )
-        fig_net.update_xaxes(gridcolor="#2E2820", tickfont=dict(size=11))
-        fig_net.update_yaxes(gridcolor="#2E2820", zeroline=False)
-        st.plotly_chart(fig_net, use_container_width=True)
-
-        lstm_rows = [r for _, r in df.iterrows() if r.get("method") == "lstm"]
-        if lstm_rows:
-            gaps = [float(r["current_price"]) - float(r["forecast_price"])
-                    for r in lstm_rows if r.get("current_price") and r.get("forecast_price")]
-            avg_gap = round(sum(gaps) / len(gaps)) if gaps else 304
-        else:
-            avg_gap = 304  # known gap from live data
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        gap_l, gap_r = st.columns([3, 2])
-
-        with gap_l:
-            st.markdown(f"""<div style='background:{PANEL};border:1px solid #2E2820;border-left:4px solid {AMBER};
-            border-radius:12px;padding:1.6rem 1.8rem'>
-            <div style='font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;color:{AMBER};margin-bottom:.7rem'>The data gap · and the funding ask</div>
-            <div style='font-family:Fraunces,serif;font-size:1.55rem;font-weight:900;color:{CREAM};line-height:1.25;margin-bottom:1.1rem'>
-            Our LSTM was trained on prices from a different era of Ghana's cereal market.</div>
-            <div style='display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.1rem'>
-              <div style='background:{INK};border-radius:8px;padding:.85rem 1rem'>
-                <div style='font-size:.7rem;color:{MUTE};margin-bottom:.3rem'>Training data · 2006–2023</div>
-                <div style='font-family:Fraunces,serif;font-size:1.4rem;font-weight:900;color:{GRAIN}'>GHS 95–200</div>
-              </div>
-              <div style='background:{INK};border-radius:8px;padding:.85rem 1rem'>
-                <div style='font-size:.7rem;color:{MUTE};margin-bottom:.3rem'>Current market · 2024–2026</div>
-                <div style='font-family:Fraunces,serif;font-size:1.4rem;font-weight:900;color:{AMBER}'>GHS 490–760</div>
-              </div>
-            </div>
-            <div style='font-size:.88rem;color:{GRAIN};line-height:1.75'>
-            Average gap: <b style='color:{AMBER};font-size:1.05rem'>GHS {avg_gap:,} per bag</b>
-            &nbsp;·&nbsp; <b style='color:{CREAM}'>GHS {avg_gap * 20:,} on 20 bags</b><br><br>
-            This is not a model failure. It is the precise distance between
-            what our model was trained to know and what the market is doing today.<br><br>
-            <b style='color:{CREAM}'>One dataset closes it.</b> Updated WFP price data from 2023 onwards.
-            The LSTM retrains in under one hour. The forecast column becomes a live signal
-            every farmer can act on.<br><br>
-            <span style='color:{AMBER};font-weight:600;font-size:.92rem'>This is the core of what we are seeking funding to secure.</span>
-            </div></div>""", unsafe_allow_html=True)
-
-        with gap_r:
-            fig_gap = go.Figure()
-            fig_gap.add_trace(go.Bar(
-                name="Training era", x=["GHS / bag"],
-                y=[105], base=[95],
-                marker_color=GRAIN, marker_line_width=0, width=0.45,
-                text="GHS 95–200<br>Training data<br>2006–2023",
-                textposition="inside", textfont=dict(color=INK, size=11),
-            ))
-            fig_gap.add_trace(go.Bar(
-                name="Uncharted", x=["GHS / bag"],
-                y=[290], base=[200],
-                marker_color="#252018",
-                marker_line=dict(width=1, color="#3A3020"),
-                width=0.45,
-                text="— gap —<br>no data",
-                textposition="inside", textfont=dict(color=MUTE, size=10),
-            ))
-            fig_gap.add_trace(go.Bar(
-                name="Current market", x=["GHS / bag"],
-                y=[270], base=[490],
-                marker_color=AMBER, marker_line_width=0, width=0.45,
-                text="GHS 490–760<br>Today's prices<br>2024–2026",
-                textposition="inside", textfont=dict(color=INK, size=11),
-            ))
-            fig_gap.update_layout(
-                barmode="stack",
-                plot_bgcolor=PANEL, paper_bgcolor=PANEL, font_color=CREAM,
-                height=380, margin=dict(t=20, b=10, l=10, r=10),
-                showlegend=False, yaxis_title="GHS per bag",
-                yaxis=dict(range=[0, 820], gridcolor="#2E2820", tickprefix="GHS "),
-            )
-            fig_gap.update_xaxes(showticklabels=False, showgrid=False)
-            st.plotly_chart(fig_gap, use_container_width=True)
-
-
-with tab3:
     st.markdown("# Available storage")
     st.markdown(f"<p style='color:{MUTE}'>The verified warehouses in our registry. A 'store' recommendation only holds if there's somewhere to store.</p>", unsafe_allow_html=True)
     f1, f2 = st.columns(2)
