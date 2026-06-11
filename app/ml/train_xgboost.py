@@ -140,11 +140,6 @@ def retrain():
 
     CW = 'balanced' if not USE_SMOTE else None
     param_grids = {
-        'XGBoost': {
-            'n_estimators':     randint(50,150), 'max_depth':        randint(2,4),
-            'learning_rate':    uniform(0.05,0.15), 'subsample':     uniform(0.5,0.4),
-            'min_child_weight': randint(5,20),   'colsample_bytree': uniform(0.5,0.4),
-        },
         'Random Forest': {
             'n_estimators':      randint(50,150), 'max_depth':         randint(3,6),
             'min_samples_split': randint(10,30),  'min_samples_leaf':  randint(5,15),
@@ -163,7 +158,6 @@ def retrain():
         },
     }
     base_models = {
-        'XGBoost':             xgb.XGBClassifier(eval_metric='mlogloss', random_state=SEED),
         'Random Forest':       RandomForestClassifier(class_weight=CW,
                                    random_state=SEED, n_jobs=-1),
         'Gradient Boosting':   GradientBoostingClassifier(random_state=SEED),
@@ -175,6 +169,42 @@ def retrain():
     tscv = TimeSeriesSplit(n_splits=5)
     results = {}
     print("\nTraining all algorithms...")
+
+    # XGBoost: manual search to avoid sklearn __sklearn_tags__ incompatibility
+    _rng = np.random.default_rng(SEED)
+    _xgb_candidates = [
+        {
+            'n_estimators':     int(_rng.integers(50, 150)),
+            'max_depth':        int(_rng.integers(2, 4)),
+            'learning_rate':    float(_rng.uniform(0.05, 0.20)),
+            'subsample':        float(_rng.uniform(0.5, 1.0)),
+            'colsample_bytree': float(_rng.uniform(0.5, 1.0)),
+            'min_child_weight': int(_rng.integers(5, 20)),
+        }
+        for _ in range(30)
+    ]
+    _best_cv, _best_xgb_params = -1.0, _xgb_candidates[0]
+    for _params in _xgb_candidates:
+        _fold_scores = []
+        for _tr_idx, _va_idx in tscv.split(X_TRAIN_FINAL):
+            _m = xgb.XGBClassifier(eval_metric='mlogloss', random_state=SEED, **_params)
+            _m.fit(X_TRAIN_FINAL[_tr_idx], Y_TRAIN_FINAL[_tr_idx])
+            _fold_scores.append(f1_score(Y_TRAIN_FINAL[_va_idx], _m.predict(X_TRAIN_FINAL[_va_idx]), average='macro'))
+        _score = float(np.mean(_fold_scores))
+        if _score > _best_cv:
+            _best_cv, _best_xgb_params = _score, _params
+    _xgb_best = xgb.XGBClassifier(eval_metric='mlogloss', random_state=SEED, **_best_xgb_params)
+    _xgb_best.fit(X_TRAIN_FINAL, Y_TRAIN_FINAL)
+    _f1_va = f1_score(y_va, _xgb_best.predict(X_va), average='macro')
+    _f1_te = f1_score(y_te, _xgb_best.predict(X_te), average='macro')
+    results['XGBoost'] = {
+        'model': _xgb_best, 'f1_cv': _best_cv,
+        'f1_val': _f1_va, 'f1_test': _f1_te,
+        'gap': f1_score(Y_TRAIN_FINAL, _xgb_best.predict(X_TRAIN_FINAL), average='macro') - _f1_te,
+        'params': _best_xgb_params, 'preds': _xgb_best.predict(X_te),
+    }
+    print(f"  {'XGBoost':<25} Val F1={_f1_va:.4f}  Test F1={_f1_te:.4f}")
+
     for name, base in base_models.items():
         search = RandomizedSearchCV(base, param_grids[name], n_iter=30, cv=tscv,
                                      scoring='f1_macro', n_jobs=-1,

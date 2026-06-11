@@ -153,10 +153,13 @@ def retrain():
     preds = p_sc.inverse_transform(preds_sc).flatten()
     true  = p_sc.inverse_transform(yte.reshape(-1,1)).flatten()
 
-    mae  = mean_absolute_error(true, preds)
-    rmse = float(np.sqrt(mean_squared_error(true, preds)))
-    r2   = r2_score(true, preds)
-    print(f"\nLSTM Test — MAE={mae:.2f}  RMSE={rmse:.2f}  R²={r2:.4f}")
+    mae     = mean_absolute_error(true, preds)
+    rmse    = float(np.sqrt(mean_squared_error(true, preds)))
+    r2      = r2_score(true, preds)
+    dir_acc = float(np.mean(
+        np.sign(preds[1:] - preds[:-1]) == np.sign(true[1:] - true[:-1])
+    )) * 100
+    print(f"\nLSTM Test — MAE={mae:.2f}  RMSE={rmse:.2f}  R²={r2:.4f}  DirAcc={dir_acc:.1f}%")
 
     joblib.dump(scaler, LSTM_SCALER_PATH)
     joblib.dump(p_sc,   PRICE_SCALER_PATH)
@@ -168,13 +171,14 @@ def retrain():
         metadata = {}
 
     metadata.update({
-        'lstm_seq_len': LSTM_SEQ_LEN,
-        'lstm_hidden':  LSTM_HIDDEN,
-        'lstm_layers':  LSTM_LAYERS,
-        'lstm_features':LSTM_FEAT_COLS,
-        'lstm_mae_ghs': round(mae, 2),
-        'lstm_rmse_ghs':round(rmse, 2),
-        'lstm_r2':      round(r2, 4),
+        'lstm_seq_len':      LSTM_SEQ_LEN,
+        'lstm_hidden':       LSTM_HIDDEN,
+        'lstm_layers':       LSTM_LAYERS,
+        'lstm_features':     LSTM_FEAT_COLS,
+        'lstm_mae_ghs':      round(mae, 2),
+        'lstm_rmse_ghs':     round(rmse, 2),
+        'lstm_r2':           round(r2, 4),
+        'lstm_dir_accuracy': round(dir_acc, 1),
     })
     with open(METADATA_PATH, 'w') as f:
         json.dump(metadata, f, indent=2)
