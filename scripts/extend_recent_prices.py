@@ -1,15 +1,6 @@
 # Run: python -m scripts.extend_recent_prices
-#
-# Extends every market-commodity series in wfp_prices from its last real
-# record to the current month with synthetic prices, so the models can train
-# on current-range data until real post-2023 WFP records are ingested.
-#
-# Synthetic rows are tagged priceflag='synthetic' (real WFP rows use
-# 'actual'/'aggregate'), and missing exchange-rate months are filled with
-# flag='synth'. Re-running the script deletes and regenerates all synthetic
-# rows, so it is safe to run repeatedly and trivial to undo:
-#   DELETE FROM wfp_prices WHERE priceflag='synthetic';
-#   DELETE FROM ghana_exchange_rates WHERE flag='synth';
+# To undo: DELETE FROM wfp_prices WHERE priceflag='synthetic';
+#          DELETE FROM ghana_exchange_rates WHERE flag='synth';
 
 import os
 import sys

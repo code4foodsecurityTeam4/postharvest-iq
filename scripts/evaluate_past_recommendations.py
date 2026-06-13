@@ -1,8 +1,4 @@
 # Run: python -m scripts.evaluate_past_recommendations
-#
-# For every recommendation logged ~3 months ago, looks up the actual price
-# that materialised in wfp_prices and scores whether the decision was correct.
-# Prints a report — useful for tracking real-world model accuracy over time.
 
 import os
 import sys
@@ -49,7 +45,7 @@ def run():
 
     with engine.connect() as conn:
         for rec in recs:
-            rec_id, crop, district, decision, current_price, forecast_price, bags, created_at = rec
+            rec_id, crop, district, decision, current_price, forecast_price, _, created_at = rec
             market = MARKET_FOR_DISTRICT.get(district, "Tamale")
 
             actual_row = conn.execute(text("""

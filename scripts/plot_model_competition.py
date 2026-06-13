@@ -1,12 +1,4 @@
 # Run: python -m scripts.plot_model_competition
-#
-# Generates the model-competition chart: which classifier won the decision
-# tournament, and how the LSTM compares against tree-ensemble regressors on
-# the same per-crop, 3-month-ahead forecasting task.
-#
-# Classifier standings are read from model_metadata.json (written by
-# train_xgboost). Forecaster baselines are trained here on identical data so
-# the comparison is apples-to-apples, then saved back to the metadata.
 
 import os
 import sys
@@ -98,7 +90,6 @@ def run():
         fontsize=14, fontweight='bold',
     )
 
-    # panel 1: classifier tournament
     ax = axes[0]
     names = sorted(cls_results, key=lambda k: cls_results[k]['val_f1'])
     val   = [cls_results[n]['val_f1'] for n in names]
@@ -116,7 +107,6 @@ def run():
     ax.legend(loc='lower right', fontsize=9)
     ax.grid(axis='x', alpha=0.3)
 
-    # panel 2: forecaster MAE
     ax = axes[1]
     fnames = sorted(fc_results, key=lambda k: -fc_results[k]['MAE'])
     mae    = [fc_results[n]['MAE'] for n in fnames]
@@ -130,7 +120,6 @@ def run():
         ax.text(v + 3, i, f'{v:.0f}', va='center', fontsize=9)
     ax.grid(axis='x', alpha=0.3)
 
-    # panel 3: forecaster directional accuracy
     ax = axes[2]
     fnames = sorted(fc_results, key=lambda k: fc_results[k]['DirAcc'])
     da     = [fc_results[n]['DirAcc'] for n in fnames]

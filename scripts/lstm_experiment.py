@@ -1,12 +1,4 @@
 # Run: python -m scripts.lstm_experiment
-#
-# Experiment: can the LSTM win the forecaster competition when trained the way
-# LSTMs need — one global model across all 15 market-crop series (5x more
-# sequences) with a network sized to the data?
-#
-# All contenders see identical features, identical per-series chronological
-# splits, and identical 3-month-ahead targets. Does NOT touch production
-# artifacts — results are printed for comparison only.
 
 import os
 import sys
@@ -155,7 +147,7 @@ def run_lstm_variant(name, hidden, layers, tr_parts, va_parts, te_parts, scaler,
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
 
     best_val, pat, best_state = float('inf'), 0, None
-    for epoch in range(EPOCHS):
+    for _ in range(EPOCHS):
         model.train()
         for xb, yb in train_dl:
             optimizer.zero_grad()

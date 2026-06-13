@@ -1,8 +1,4 @@
-# Run: python -m scripts.auto_retrain
-#
-# Checks whether new WFP price data has arrived since the last training run.
-# If so, retrains both the LSTM forecaster and the classifier tournament.
-# Designed to be called monthly (e.g. via cron) after the WFP data refresh.
+# Run: python -m scripts.auto_retrain  [--force]
 
 import json
 import os
