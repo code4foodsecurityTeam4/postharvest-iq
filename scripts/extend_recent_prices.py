@@ -29,13 +29,11 @@ MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 
 
 def _drift(date: pd.Timestamp) -> float:
-    """Monthly price drift tracking Ghana's macro path: high food inflation
-    through 2024, easing in 2025 as the cedi appreciated."""
     if date.year <= 2024:
-        return 1.022
+        return 1.022   # high food inflation / cedi depreciation era
     if date.year == 2025:
-        return 0.997
-    return 1.005
+        return 0.997   # cedi recovery, prices easing
+    return 1.002       # stable cedi, background inflation only (~2.4%/yr)
 
 
 def _month_starts(after: pd.Timestamp, until: pd.Timestamp):

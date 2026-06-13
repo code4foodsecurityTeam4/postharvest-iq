@@ -72,11 +72,11 @@
   "lstm_seq_len": 6,
   "lstm_hidden": 24,
   "lstm_layers": 1,
-  "lstm_mae_ghs": 92.43,
-  "lstm_rmse_ghs": 124.26,
+  "lstm_mae_ghs": 88.62,
+  "lstm_rmse_ghs": 119.97,
   "lstm_mape_pct": 47.65,
-  "lstm_r2": 0.7139,
-  "lstm_dir_accuracy": 60.7,
+  "lstm_r2": 0.7314,
+  "lstm_dir_accuracy": 61.5,
   "best_forecast_model": null,
   "decision_classes": [
     "SELL_NOW",
@@ -150,16 +150,16 @@
   "lstm_train_start": "2015-01-01",
   "lstm_per_crop": {
     "Maize": {
-      "mae": 94.22,
+      "mae": 91.82,
       "dir_acc": 67.4
     },
     "Millet": {
-      "mae": 79.48,
+      "mae": 75.1,
       "dir_acc": 60.0
     },
     "Sorghum": {
-      "mae": 108.94,
-      "dir_acc": 51.7
+      "mae": 103.97,
+      "dir_acc": 55.2
     }
   }
 }
