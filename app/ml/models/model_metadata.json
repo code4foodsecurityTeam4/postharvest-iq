@@ -1,19 +1,18 @@
 {
-  "best_classifier": "XGBoost",
+  "best_classifier": "Random Forest",
   "best_params": {
-    "colsample_bytree": "0.5254233401144095",
-    "learning_rate": "0.09664734825734933",
-    "max_depth": "3",
-    "min_child_weight": "9",
-    "n_estimators": "148",
-    "subsample": "0.7365191150830909"
+    "max_depth": "4",
+    "max_features": "sqrt",
+    "min_samples_leaf": "10",
+    "min_samples_split": "19",
+    "n_estimators": "53"
   },
   "cv_macro_f1": 0.2666,
-  "val_macro_f1": 0.3565,
-  "test_macro_f1": 0.2464,
-  "overfit_gap": 0.722,
+  "val_macro_f1": 0.8231,
+  "test_macro_f1": 0.9497,
+  "overfit_gap": -0.184,
   "overfit_detected": true,
-  "balance_method": "SMOTE",
+  "balance_method": "class_weight=balanced",
   "split_method": "chronological_70_15_15_no_shuffle",
   "encoding": "ColumnTransformer+OneHotEncoder (fitted on train only)",
   "target_encoding": "LabelEncoder (fitted on train only)",
@@ -33,7 +32,6 @@
     "rolling_std_3",
     "price_pct_change",
     "exchange_rate",
-    "producer_price_index",
     "month_sin",
     "month_cos",
     "is_harvest_season",
@@ -54,87 +52,114 @@
   "lstm_features": [
     "price",
     "exchange_rate",
-    "producer_price_index",
     "month_sin",
     "month_cos",
     "price_lag1",
     "price_lag2",
     "price_lag3",
     "rolling_mean_3",
-    "rolling_std_3"
+    "rolling_std_3",
+    "crop_Maize",
+    "crop_Millet",
+    "crop_Sorghum",
+    "mkt_Bolga",
+    "mkt_Kumasi",
+    "mkt_Tamale",
+    "mkt_Techiman",
+    "mkt_Wa"
   ],
   "n_lstm_features": 10,
-  "lstm_seq_len": 12,
-  "lstm_hidden": 64,
-  "lstm_layers": 2,
-  "lstm_mae_ghs": 280.29,
-  "lstm_rmse_ghs": 312.15,
+  "lstm_seq_len": 6,
+  "lstm_hidden": 24,
+  "lstm_layers": 1,
+  "lstm_mae_ghs": 92.43,
+  "lstm_rmse_ghs": 124.26,
   "lstm_mape_pct": 47.65,
-  "lstm_r2": -3.1521,
-  "lstm_dir_accuracy": 61.1,
+  "lstm_r2": 0.7139,
+  "lstm_dir_accuracy": 60.7,
   "best_forecast_model": null,
   "decision_classes": [
     "SELL_NOW",
-    "SELL_PARTIAL",
     "STORE"
   ],
   "seed": 42,
   "all_cls_results": {
     "XGBoost": {
-      "cv_f1": 0.2666,
-      "val_f1": 0.3565,
-      "test_f1": 0.2464,
-      "gap": 0.722
+      "cv_f1": 0.5068,
+      "val_f1": 0.8009,
+      "test_f1": 0.7307,
+      "gap": 0.1222
     },
     "Random Forest": {
-      "cv_f1": 0.234,
-      "val_f1": 0.319,
-      "test_f1": 0.3477,
-      "gap": 0.5412
+      "cv_f1": 0.5063,
+      "val_f1": 0.8231,
+      "test_f1": 0.9497,
+      "gap": -0.184
     },
     "Gradient Boosting": {
-      "cv_f1": 0.2703,
-      "val_f1": 0.3248,
-      "test_f1": 0.192,
-      "gap": 0.7601
+      "cv_f1": 0.5217,
+      "val_f1": 0.6182,
+      "test_f1": 0.7555,
+      "gap": 0.0533
     },
     "Decision Tree": {
-      "cv_f1": 0.2126,
-      "val_f1": 0.2865,
-      "test_f1": 0.2356,
-      "gap": 0.4422
+      "cv_f1": 0.4776,
+      "val_f1": 0.369,
+      "test_f1": 0.4976,
+      "gap": 0.1655
     },
     "Logistic Regression": {
-      "cv_f1": 0.2134,
-      "val_f1": 0.2086,
-      "test_f1": 0.3064,
-      "gap": 0.3336
+      "cv_f1": 0.5745,
+      "val_f1": 0.7124,
+      "test_f1": 0.6217,
+      "gap": -0.04
     }
   },
   "all_forecast_results": {
-    "LSTM (Global, Multivariate)": {
-      "name": "LSTM (Global, Multivariate)",
-      "RMSE": 312.15,
-      "MAE": 280.29,
-      "MAPE": 47.65,
-      "R2": -3.1521,
-      "DirAcc": 61.1
-    },
     "RF Regressor": {
-      "name": "RF Regressor",
-      "RMSE": 380.13,
-      "MAE": 347.85,
-      "MAPE": 60.18,
-      "R2": -5.1573,
-      "DirAcc": 77.8
+      "MAE": 82.01,
+      "R2": 0.8007,
+      "DirAcc": 57.3,
+      "n_test": 132
     },
-    "XGBoost Regressor": {
-      "name": "XGBoost Regressor",
-      "RMSE": 373.15,
-      "MAE": 340.25,
-      "MAPE": 58.66,
-      "R2": -4.9332,
-      "DirAcc": 55.6
+    "XGB Regressor": {
+      "MAE": 66.46,
+      "R2": 0.8465,
+      "DirAcc": 69.2,
+      "n_test": 132
+    },
+    "Naive (no change)": {
+      "MAE": 113.03,
+      "R2": 0.6742,
+      "DirAcc": 40.2,
+      "n_test": 132
+    },
+    "SARIMA(1,1,1)x(1,1,1,12)": {
+      "MAE": 296.94,
+      "R2": -1.6668,
+      "DirAcc": 59.9,
+      "n_test": 207
+    },
+    "LSTM": {
+      "MAE": 92.43,
+      "R2": 0.7139,
+      "DirAcc": 60.7
+    }
+  },
+  "lstm_target": "log_price_per_market_crop",
+  "lstm_train_start": "2015-01-01",
+  "lstm_per_crop": {
+    "Maize": {
+      "mae": 94.22,
+      "dir_acc": 67.4
+    },
+    "Millet": {
+      "mae": 79.48,
+      "dir_acc": 60.0
+    },
+    "Sorghum": {
+      "mae": 108.94,
+      "dir_acc": 51.7
     }
   }
 }

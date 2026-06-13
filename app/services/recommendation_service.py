@@ -1,4 +1,9 @@
-from app.ml.config import STORE_THRESHOLD, PARTIAL_THRESHOLD, STORAGE_MONTHS, TRANSPORT_COST
+from app.ml.config import (
+    STORE_THRESHOLD_PCT, STORAGE_MONTHS,
+    TRANSPORT_COST_PER_KM, TRANSPORT_LAST_MILE_KM,
+)
+
+_DEFAULT_TRANSPORT = TRANSPORT_LAST_MILE_KM * TRANSPORT_COST_PER_KM  # 2.0 GHS
 
 
 def calculate_net_return(
@@ -7,7 +12,7 @@ def calculate_net_return(
     quantity_bags: int,
     storage_cost_per_bag_month: float,
     storage_months: float = STORAGE_MONTHS,
-    transport_cost_per_bag: float = TRANSPORT_COST,
+    transport_cost_per_bag: float = _DEFAULT_TRANSPORT,
 ) -> dict:
 
     expected_gain  = forecast_price - current_price
@@ -15,10 +20,8 @@ def calculate_net_return(
     net_per_bag    = expected_gain - storage_cost - transport_cost_per_bag
     net_total      = net_per_bag * quantity_bags
 
-    if net_per_bag > STORE_THRESHOLD:
+    if net_per_bag > STORE_THRESHOLD_PCT * current_price:
         decision = "STORE"
-    elif net_per_bag > PARTIAL_THRESHOLD:
-        decision = "SELL_PARTIAL"
     else:
         decision = "SELL_NOW"
 

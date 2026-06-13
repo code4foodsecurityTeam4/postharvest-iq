@@ -7,7 +7,7 @@ import torch.nn as nn
 
 from app.ml.config import (
     CLASSIFIER_PATH, PREPROCESSING_PIPELINE_PATH, LABEL_ENCODER_PATH,
-    FEATURE_COLUMNS_PATH, LSTM_PATH, LSTM_SCALER_PATH,
+    FEATURE_COLUMNS_PATH, LSTM_PATH, LSTM_SCALER_PATH, PRICE_SCALER_PATH,
     METADATA_PATH, LSTM_FEAT_COLS,
     LSTM_SEQ_LEN, LSTM_HIDDEN, LSTM_LAYERS, LSTM_DROPOUT,
 )
@@ -33,6 +33,7 @@ _preprocessor  = joblib.load(PREPROCESSING_PIPELINE_PATH)
 _label_encoder = joblib.load(LABEL_ENCODER_PATH)
 _feature_cols  = joblib.load(FEATURE_COLUMNS_PATH)
 _lstm_scaler   = joblib.load(LSTM_SCALER_PATH)
+_price_scaler  = joblib.load(PRICE_SCALER_PATH)
 
 _n_lstm_feat = len(LSTM_FEAT_COLS)
 _lstm = MultivariateLSTM(_n_lstm_feat)
@@ -44,6 +45,8 @@ with open(METADATA_PATH) as f:
 
 
 def forecast_price(recent_feature_df: pd.DataFrame) -> float:
+    """Returns the forecast price FORECAST_HORIZON_MONTHS (3) months ahead,
+    matching the storage decision horizon."""
     if len(recent_feature_df) < LSTM_SEQ_LEN:
         raise ValueError(
             f"Need at least {LSTM_SEQ_LEN} monthly rows, got {len(recent_feature_df)}."
@@ -56,10 +59,8 @@ def forecast_price(recent_feature_df: pd.DataFrame) -> float:
     with torch.no_grad():
         pred_scaled = _lstm(tensor).numpy()
 
-    # inverse-transform price column only; scaler covers all LSTM features
-    dummy        = np.zeros((1, _n_lstm_feat))
-    dummy[0, 0]  = pred_scaled[0, 0]
-    pred_price   = _lstm_scaler.inverse_transform(dummy)[0, 0]
+    # model works in log space; exp back to GHS
+    pred_price = np.exp(_price_scaler.inverse_transform(pred_scaled)[0, 0])
     return round(float(pred_price), 2)
 
 

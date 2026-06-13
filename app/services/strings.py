@@ -7,6 +7,10 @@ STRINGS = {
         "millet":         "Millet",
         "sorghum":        "Sorghum",
         "select_dist":    "Choose your district:",
+        "enter_bags":     "How many bags do you have? (e.g. 20)",
+
+        # Forecast range line (shown below the decision headline)
+        "forecast_range": "3-month forecast: GHS {low}-{high}",
 
         # Decision headlines
         "store":          "STORE your crop",
@@ -14,9 +18,9 @@ STRINGS = {
         "sell_partial":   "SELL HALF, STORE HALF",
 
         # Recommendation detail lines ({} placeholders must be kept)
-        "earn_per_bag":   "Earn GHS {gain} more per bag if you store",
+        "earn_per_bag":   "Earn GHS {gain} more per bag if you store 3 months",
         "total_for_bags": "Total for {bags} bags: GHS {net}",
-        "after_cost":     "(after storage cost)",
+        "after_cost":     "(after 3 months storage cost)",
         # Reason line for SELL — explains WHY, does not repeat "sell"
         "sell_advice":    "Prices are high now. Waiting could earn you less.",
         # SELL recommendation money lines (mirror the STORE screen)
@@ -57,7 +61,10 @@ STRINGS = {
         "millet":         "Daawa",
         "sorghum":        "Chiŋ",
         "select_dist":    "Yuli ni fo ŋun distrik:",
+        "enter_bags":     "Bagi ŋmɛla ni fo ŋun? (bia 20)",
  
+        "forecast_range": "Dali nyɛɛri baŋ 3: GHS {low}-{high}",
+
         "store":          "KPAGI ni masara",
         "sell_now":       "NYƐƐRI SAHA YIN",
         "sell_partial":   "NYƐƐRI BAARIGI, KPAGI BAARIGI",
@@ -99,7 +106,10 @@ STRINGS = {
         "millet":         "Gero",
         "sorghum":        "Dawa",
         "select_dist":    "Zaɓi gundumar:",
+        "enter_bags":     "Buhu nawa kake da su? (misali 20)",
  
+        "forecast_range": "Hasashen watan 3: GHS {low}-{high}",
+
         "store":          "ADANA masararka",
         "sell_now":       "SAYAR YANZU",
         "sell_partial":   "SAYAR RABI, ADANA RABI",

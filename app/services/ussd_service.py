@@ -78,6 +78,15 @@ def handle_ussd_session(
         )
 
     if level == 3:
+        return f"CON {t(lang, 'enter_bags')}"
+
+    bags = DEFAULT_QTY
+    if level >= 4:
+        if not parts[3].isdigit() or int(parts[3]) < 1:
+            return f"END {t(lang, 'invalid')}"
+        bags = min(int(parts[3]), 999)
+
+    if level == 4:
         crop = CROPS.get(parts[1], "Maize")
         district = DISTRICTS.get(parts[2], "Tamale")
 
@@ -85,7 +94,7 @@ def handle_ussd_session(
             rec = ml_service.get_recommendation(
                 crop=crop,
                 district=district,
-                quantity_bags=DEFAULT_QTY,
+                quantity_bags=bags,
                 language=lang,
                 phone_number=phone_number,
                 session_id=session_id,
@@ -97,6 +106,8 @@ def handle_ussd_session(
             gain_per_bag = round(
                 rec.get("forecast_price", 0) - rec.get("current_price", 0)
             )
+            fcast_low  = rec.get("forecast_low")
+            fcast_high = rec.get("forecast_high")
 
             menu = (
                 f"1. {t(lang, 'menu_find_storage')}\n"
@@ -106,34 +117,37 @@ def handle_ussd_session(
             )
 
             if decision == "STORE":
+                range_line = ""
+                if fcast_low and fcast_high:
+                    range_line = (
+                        t(lang, "forecast_range").format(
+                            low=_fmt(fcast_low), high=_fmt(fcast_high)
+                        ) + "\n"
+                    )
                 body = (
                     f"CON {t(lang, 'store')}\n"
+                    f"{range_line}"
                     f"{t(lang, 'earn_per_bag').format(gain=_fmt(gain_per_bag))}\n"
-                    f"{t(lang, 'total_for_bags').format(bags=DEFAULT_QTY, net=_fmt(net_total))}\n"
-                    f"{t(lang, 'after_cost')}\n"
-                )
-            elif decision == "SELL_PARTIAL":
-                body = (
-                    f"CON {t(lang, 'sell_partial')}\n"
-                    f"{t(lang, 'total_for_bags').format(bags=DEFAULT_QTY, net=_fmt(net_total))}\n"
+                    f"{t(lang, 'total_for_bags').format(bags=bags, net=_fmt(net_total))}\n"
                 )
             else:
                 current_price = rec.get("current_price", 0)
                 body = (
                     f"CON {t(lang, 'sell_now')}\n"
                     f"{t(lang, 'sell_now_price').format(price=_fmt(current_price))}\n"
+                    f"{t(lang, 'sell_now_total').format(bags=bags, total=_fmt(current_price * bags))}\n"
                 )
 
             return body + menu
 
         except Exception:
-            _log.exception("level-3 recommendation failed sid=%s", session_id)
+            _log.exception("level-4 recommendation failed sid=%s", session_id)
             return f"END {t(lang, 'unavailable')}"
 
-    if level == 4:
+    if level == 5:
         crop = CROPS.get(parts[1], "Maize")
         district = DISTRICTS.get(parts[2], "Tamale")
-        action = parts[3]
+        action = parts[4]
 
         if action == "1":
             try:
@@ -176,16 +190,16 @@ def handle_ussd_session(
 
         elif action == "3":
             try:
+                half = max(bags // 2, 1)
                 locations = storage_service.get_nearest_storage(
                     district=district, crop=crop, db=db
                 )
                 rec = ml_service.get_recommendation(
                     crop=crop, district=district,
-                    quantity_bags=10, db=db, month=demo_month,
+                    quantity_bags=half, db=db, month=demo_month,
                 )
                 net = rec.get("net_total", 0)
                 price = rec.get("current_price", 0)
-                half = 10
 
                 if net <= 0:
                     return (

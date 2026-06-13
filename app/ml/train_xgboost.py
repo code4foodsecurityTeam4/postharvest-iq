@@ -21,7 +21,7 @@ from app.ml.config import (
     FEATURE_COLUMNS_PATH, METADATA_PATH,
     CAT_COLS, NUM_COLS,
     STORAGE_COST_PER_BAG_MONTH, STORAGE_MONTHS, TRANSPORT_COST,
-    STORE_THRESHOLD, PARTIAL_THRESHOLD,
+    STORE_THRESHOLD_PCT, TRAIN_START, FORECAST_HORIZON_MONTHS,
 )
 
 SEED = 42
@@ -35,24 +35,20 @@ def load_and_engineer(engine) -> pd.DataFrame:
             p.date, p.market, p.commodity, p.price,
             SIN(2 * PI() * MONTH(p.date) / 12) AS month_sin,
             COS(2 * PI() * MONTH(p.date) / 12) AS month_cos,
-            fx.value   AS exchange_rate,
-            pp.value   AS producer_price_index
+            fx.value   AS exchange_rate
         FROM wfp_prices p
         LEFT JOIN ghana_exchange_rates fx
             ON fx.year   = YEAR(p.date)
             AND fx.months = DATE_FORMAT(p.date, '%M')
             AND fx.element = 'Local currency units per USD'
-        LEFT JOIN fao_producer_prices pp
-            ON pp.year   = YEAR(p.date)
-            AND pp.item  = p.commodity
-            AND pp.months = 'Annual value'
-            AND pp.element = 'Producer Price Index (2014-2016 = 100)'
         WHERE p.commodity IN ('Maize', 'Millet', 'Sorghum')
           AND p.pricetype = 'Wholesale'
           AND p.market IN ('Tamale', 'Bolga', 'Wa', 'Kumasi', 'Techiman')
+          AND p.date >= '{TRAIN_START}'
         ORDER BY p.market, p.commodity, p.date
-    """
-    df = pd.read_sql(query, engine)
+    """.format(TRAIN_START=TRAIN_START)
+    from sqlalchemy import text
+    df = pd.read_sql(text(query), engine)
     df['date'] = pd.to_datetime(df['date'])
     df = df.sort_values(['market','commodity','date']).reset_index(drop=True)
 
@@ -63,7 +59,7 @@ def load_and_engineer(engine) -> pd.DataFrame:
     df['rolling_mean_3']   = grp.transform(lambda x: x.rolling(3, min_periods=1).mean())
     df['rolling_std_3']    = grp.transform(lambda x: x.rolling(3, min_periods=2).std())
     df['price_pct_change'] = grp.pct_change()
-    df['price_next']       = grp.shift(-1)
+    df['price_next']       = grp.shift(-FORECAST_HORIZON_MONTHS)
     df['month']            = df['date'].dt.month
     df['is_harvest_season']= df['month'].isin([10,11,12]).astype(int)
     df['is_lean_season']   = df['month'].isin([6,7,8]).astype(int)
@@ -78,9 +74,7 @@ def load_and_engineer(engine) -> pd.DataFrame:
     def make_label(row):
         net = ((row['price_next'] - row['price'])
                - (STORAGE_COST_PER_BAG_MONTH * STORAGE_MONTHS) - TRANSPORT_COST)
-        if net > STORE_THRESHOLD:    return 'STORE'
-        elif net > PARTIAL_THRESHOLD: return 'SELL_PARTIAL'
-        else:                         return 'SELL_NOW'
+        return 'STORE' if net > STORE_THRESHOLD_PCT * row['price'] else 'SELL_NOW'
 
     df['decision'] = df.apply(make_label, axis=1)
     return df
@@ -243,6 +237,13 @@ def retrain():
 
     metadata.update({
         'best_classifier':  best_name,
+        'all_cls_results':  {
+            name: {'cv_f1': round(float(r['f1_cv']), 4),
+                   'val_f1': round(float(r['f1_val']), 4),
+                   'test_f1': round(float(r['f1_test']), 4),
+                   'gap': round(float(r['gap']), 4)}
+            for name, r in results.items()
+        },
         'best_params':      {k:str(v) for k,v in best_res['params'].items()},
         'val_macro_f1':     round(best_res['f1_val'],4),
         'test_macro_f1':    round(best_res['f1_test'],4),
