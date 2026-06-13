@@ -11,3 +11,4 @@ venv/
 .DS_Store
 .ipynb_checkpoints/
 notebooks/*.nbconvert.ipynb
+app/ml/models/*_checkpoint.pt

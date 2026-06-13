@@ -45,9 +45,7 @@ class MultivariateLSTM(nn.Module):
 
 
 def make_sequences(feats, target, seq_len):
-    """Each window of `seq_len` months targets the 'target' column at the
-    window's last row — which holds the price FORECAST_HORIZON_MONTHS ahead.
-    Direct multi-step forecast, not recursive."""
+    """Direct multi-step: each window targets the price FORECAST_HORIZON_MONTHS ahead, not recursive."""
     X, y = [], []
     for i in range(len(feats) - seq_len + 1):
         X.append(feats[i:i+seq_len])
@@ -58,8 +56,6 @@ def make_sequences(feats, target, seq_len):
 def retrain():
     print(f"Device: {DEVICE}")
 
-    # one global model trained across all 15 market-crop series — 5x more
-    # sequences than crop averages, and forecasts specific to each market
     query = """
         SELECT
             p.market,
@@ -103,7 +99,6 @@ def retrain():
     n_series = df.groupby(['market', 'commodity']).ngroups
     print(f"Time series rows: {len(df)} ({n_series} market-crop series)")
 
-    # chronological split within each series, then stack
     tr_parts, va_parts, te_parts = [], [], []
     for _, gdf in df.groupby(['market', 'commodity']):
         n = len(gdf); n_tr = int(n*TRAIN_R); n_va = int(n*VAL_R)
@@ -176,7 +171,6 @@ def retrain():
     model.load_state_dict(torch.load(checkpoint, map_location=DEVICE))
     torch.save(model.state_dict(), LSTM_PATH)
 
-    # evaluate per series, aggregate per crop and overall
     model.eval()
     crop_acc = {c: {'preds': [], 'true': [], 'dirs': []} for c in VALID_COMMODITIES}
     for gdf in te_parts:

@@ -16,10 +16,8 @@ METADATA_PATH              = os.path.join(MODELS_DIR, "model_metadata.json")
 # current one and misleads the scalers
 TRAIN_START = '2015-01-01'
 
-# must match training notebook exactly — order is significant
-# NOTE: 'price' and its lag/rolling derivatives are log-transformed; the
-# inflationary climb is multiplicative, so log space keeps train and test
-# ranges comparable
+# order is significant — must match training exactly
+# price and derivatives are log-transformed: log space keeps train/test ranges comparable across the cedi inflation regime shift
 LSTM_FEAT_COLS = [
     'price',
     'exchange_rate',
@@ -40,9 +38,7 @@ LSTM_FEAT_COLS = [
     'mkt_Wa',
 ]
 
-# must match training notebook exactly — order is significant
-# network sized to data volume (~1,200 training sequences across 15 series);
-# the 2x64 variant overfits — see scripts/lstm_experiment.py
+# 1x24 chosen by experiment — 2x64 overfits ~1,200 sequences (see scripts/lstm_experiment.py)
 LSTM_SEQ_LEN  = 6
 LSTM_HIDDEN   = 24
 LSTM_LAYERS   = 1
@@ -59,20 +55,17 @@ NUM_COLS = [
     'price_vs_annual', 'price_yoy',
 ]
 
-# Decision horizon: store through the post-harvest trough (~Oct -> Jan).
-# Labels, the LSTM target, and storage costs all use this same horizon.
+# labels, LSTM target, and storage costs all use this same horizon
 FORECAST_HORIZON_MONTHS    = 3
 
 STORAGE_COST_PER_BAG_MONTH = 0.80
 STORAGE_MONTHS             = float(FORECAST_HORIZON_MONTHS)
 
-# Transport: GHS per km per bag (road freight rate, Northern Ghana)
-# plus a last-mile offset for the average village-to-district-centre distance
+# road freight rate, Northern Ghana; last-mile accounts for village-to-district-centre distance
 TRANSPORT_COST_PER_KM  = 0.20
-TRANSPORT_LAST_MILE_KM = 10.0   # km added on top of GPS distance to storage
+TRANSPORT_LAST_MILE_KM = 10.0
 
-# STORE if net gain exceeds this fraction of the current price —
-# relative so the label means the same thing across price regimes
+# relative threshold: scale-invariant across price regimes (GHS 200 era vs GHS 1000 era)
 STORE_THRESHOLD_PCT = 0.05
 
 VALID_MARKETS     = ['Bolga', 'Kumasi', 'Tamale', 'Techiman', 'Wa']

@@ -10,7 +10,7 @@ STRINGS = {
         "enter_bags":     "How many bags do you have? (e.g. 20)",
 
         # Forecast range line (shown below the decision headline)
-        "forecast_range": "3-month forecast: GHS {low}-{high}",
+        "forecast_range": "In 3 months: GHS {low}-{high}",
 
         # Decision headlines
         "store":          "STORE your crop",
@@ -18,10 +18,8 @@ STRINGS = {
         "sell_partial":   "SELL HALF, STORE HALF",
 
         # Recommendation detail lines ({} placeholders must be kept)
-        "earn_per_bag":   "Earn GHS {gain} more per bag if you store 3 months",
-        "total_for_bags": "Total for {bags} bags: GHS {net}",
-        "after_cost":     "(after 3 months storage cost)",
-        # Reason line for SELL — explains WHY, does not repeat "sell"
+        "earn_per_bag":   "Gain: GHS {gain}/bag",
+        "total_for_bags": "{bags} bags = GHS {net} total",
         "sell_advice":    "Prices are high now. Waiting could earn you less.",
         # SELL recommendation money lines (mirror the STORE screen)
         "sell_now_price": "GHS {price} per bag",
@@ -63,15 +61,14 @@ STRINGS = {
         "select_dist":    "Yuli ni fo ŋun distrik:",
         "enter_bags":     "Bagi ŋmɛla ni fo ŋun? (bia 20)",
  
-        "forecast_range": "Dali nyɛɛri baŋ 3: GHS {low}-{high}",
+        "forecast_range": "Kodili 3 dali: GHS {low}-{high}",
 
         "store":          "KPAGI ni masara",
         "sell_now":       "NYƐƐRI SAHA YIN",
         "sell_partial":   "NYƐƐRI BAARIGI, KPAGI BAARIGI",
  
-        "earn_per_bag":   "Fo na bɔri GHS {gain} paɣa baŋ mali kpagi",
-        "total_for_bags": "Bagi {bags} kpeŋ: GHS {net}",
-        "after_cost":     "(kpagim toɣo ti bɔri)",
+        "earn_per_bag":   "Paɣa: GHS {gain}/baŋ",
+        "total_for_bags": "Bagi {bags} = GHS {net} kpeŋ",
         "sell_advice":    "Nyɛɛri daa bee nyaŋa. A mali kpagi a nyɛɛri a yɛla bia.",
         "sell_now_price": "GHS {price} baŋ kpem",
         "sell_now_total": "Bagi {bags} = GHS {total} yini",
@@ -108,15 +105,14 @@ STRINGS = {
         "select_dist":    "Zaɓi gundumar:",
         "enter_bags":     "Buhu nawa kake da su? (misali 20)",
  
-        "forecast_range": "Hasashen watan 3: GHS {low}-{high}",
+        "forecast_range": "Wata 3 masu zuwa: GHS {low}-{high}",
 
         "store":          "ADANA masararka",
         "sell_now":       "SAYAR YANZU",
         "sell_partial":   "SAYAR RABI, ADANA RABI",
  
-        "earn_per_bag":   "Za ka sami GHS {gain} ƙari a buhu idan ka adana",
-        "total_for_bags": "Jimlar buhu {bags}: GHS {net}",
-        "after_cost":     "(bayan kuɗin adanawa)",
+        "earn_per_bag":   "Riba: GHS {gain}/buhu",
+        "total_for_bags": "Buhu {bags} = GHS {net} jimla",
         "sell_advice":    "Farashin ya yi yawa yanzu. Jira na iya rage kuɗinka.",
         "sell_now_price": "GHS {price} a kowace buhu",
         "sell_now_total": "Buhu {bags} = GHS {total} yau",

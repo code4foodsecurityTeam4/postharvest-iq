@@ -116,6 +116,8 @@ def handle_ussd_session(
                 f"4. {t(lang, 'menu_exit')}"
             )
 
+            current_price = rec.get("current_price", 0)
+
             if decision == "STORE":
                 range_line = ""
                 if fcast_low and fcast_high:
@@ -126,12 +128,12 @@ def handle_ussd_session(
                     )
                 body = (
                     f"CON {t(lang, 'store')}\n"
+                    f"{t(lang, 'price_today').format(price=_fmt(current_price))}\n"
                     f"{range_line}"
                     f"{t(lang, 'earn_per_bag').format(gain=_fmt(gain_per_bag))}\n"
                     f"{t(lang, 'total_for_bags').format(bags=bags, net=_fmt(net_total))}\n"
                 )
             else:
-                current_price = rec.get("current_price", 0)
                 body = (
                     f"CON {t(lang, 'sell_now')}\n"
                     f"{t(lang, 'sell_now_price').format(price=_fmt(current_price))}\n"

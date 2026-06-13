@@ -20,7 +20,8 @@ from app.ml.config import (
     CLASSIFIER_PATH, PREPROCESSING_PIPELINE_PATH, LABEL_ENCODER_PATH,
     FEATURE_COLUMNS_PATH, METADATA_PATH,
     CAT_COLS, NUM_COLS,
-    STORAGE_COST_PER_BAG_MONTH, STORAGE_MONTHS, TRANSPORT_COST,
+    STORAGE_COST_PER_BAG_MONTH, STORAGE_MONTHS,
+    TRANSPORT_COST_PER_KM, TRANSPORT_LAST_MILE_KM,
     STORE_THRESHOLD_PCT, TRAIN_START, FORECAST_HORIZON_MONTHS,
 )
 
@@ -29,7 +30,6 @@ TRAIN_RATIO, VAL_RATIO = 0.70, 0.15
 
 
 def load_and_engineer(engine) -> pd.DataFrame:
-    """Load data from MySQL and apply the same feature engineering as the notebook."""
     query = """
         SELECT
             p.date, p.market, p.commodity, p.price,
@@ -71,9 +71,11 @@ def load_and_engineer(engine) -> pd.DataFrame:
                             'price_pct_change','price_next','price_vs_annual','price_yoy'])
     df = df.sort_values('date').reset_index(drop=True)
 
+    _transport = TRANSPORT_LAST_MILE_KM * TRANSPORT_COST_PER_KM
+
     def make_label(row):
         net = ((row['price_next'] - row['price'])
-               - (STORAGE_COST_PER_BAG_MONTH * STORAGE_MONTHS) - TRANSPORT_COST)
+               - (STORAGE_COST_PER_BAG_MONTH * STORAGE_MONTHS) - _transport)
         return 'STORE' if net > STORE_THRESHOLD_PCT * row['price'] else 'SELL_NOW'
 
     df['decision'] = df.apply(make_label, axis=1)
@@ -85,7 +87,6 @@ def retrain():
     df = load_and_engineer(engine)
     print(f"Total rows: {len(df)}")
 
-    # Chronological split
     n = len(df); n_tr = int(n*TRAIN_RATIO); n_va = int(n*VAL_RATIO)
     df_tr = df.iloc[:n_tr].copy()
     df_va = df.iloc[n_tr:n_tr+n_va].copy()
@@ -93,7 +94,6 @@ def retrain():
 
     print(f"Train:{len(df_tr)}  Val:{len(df_va)}  Test:{len(df_te)}")
 
-    # Fit ColumnTransformer on train only
     preprocessor = ColumnTransformer(transformers=[
         ('ohe', OneHotEncoder(handle_unknown='ignore', sparse_output=False), CAT_COLS),
         ('num', 'passthrough', NUM_COLS),
@@ -114,7 +114,6 @@ def retrain():
     class_names = label_encoder.classes_.tolist()
     print(f"Classes: {class_names}")
 
-    # Compare class weights vs SMOTE
     rf_cw = RandomForestClassifier(n_estimators=100, class_weight='balanced',
                                     max_depth=5, random_state=SEED, n_jobs=-1)
     rf_cw.fit(X_tr, y_tr)
@@ -228,7 +227,6 @@ def retrain():
     joblib.dump(label_encoder,     LABEL_ENCODER_PATH)
     joblib.dump(FEATURES,          FEATURE_COLUMNS_PATH)
 
-    # Update metadata preserving LSTM fields
     try:
         with open(METADATA_PATH) as f:
             metadata = json.load(f)
