@@ -7,7 +7,7 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import inspect as sa_inspect
 from app.core.database import engine, Base
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
-from app.api.routes import ussd, storage, forecasts, dashboard, recommendations
+from app.api.routes import ussd, storage, forecasts, dashboard, recommendations, ml
 
 _ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 _log = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ app.include_router(storage.router,         prefix="/storage",         tags=["Sto
 app.include_router(forecasts.router,       prefix="/forecasts",       tags=["Forecasts"])
 app.include_router(dashboard.router,       prefix="/dashboard",       tags=["Dashboard"])
 app.include_router(recommendations.router, prefix="/recommendations",  tags=["Recommendations"])
+app.include_router(ml.router,              prefix="/ml",              tags=["ML"])
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():

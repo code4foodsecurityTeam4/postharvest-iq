@@ -310,7 +310,8 @@ def get_recommendation(
             lag3   = prices[3] if len(prices) > 3 else lag2
 
             rolling_mean = float(np.mean([current_price, lag1, lag2]))
-            rolling_std  = float(np.std( [current_price, lag1, lag2]))
+            # ddof=1 matches pandas rolling(3).std() used during training
+            rolling_std  = float(np.std([current_price, lag1, lag2], ddof=1))
             pct_change   = (current_price - lag1) / lag1 if lag1 != 0 else 0.0
 
             is_harvest = 1 if month in [10, 11, 12] else 0
@@ -319,7 +320,7 @@ def get_recommendation(
             annual_avg   = float(np.mean(prices[:12])) if len(prices) >= 12 else current_price
             price_vs_ann = current_price / annual_avg if annual_avg != 0 else 1.0
             price_yoy    = ((current_price - prices[12]) / prices[12]
-                            if len(prices) >= 13 else 0.0)
+                            if len(prices) >= 13 and prices[12] != 0 else 0.0)
 
             feat_row = {
                 "market":               market,

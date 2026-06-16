@@ -28,9 +28,12 @@ def get_dashboard_summary(
                     "district":      district,
                     "crop":          crop,
                     "decision":      rec.get("decision"),
-                    "net_total":     rec.get("net_total"),
-                    "forecast_price":rec.get("forecast_price"),
                     "current_price": rec.get("current_price"),
+                    "forecast_price":rec.get("forecast_price"),
+                    "forecast_low":  rec.get("forecast_low"),
+                    "forecast_high": rec.get("forecast_high"),
+                    "net_per_bag":   rec.get("net_per_bag"),
+                    "net_total":     rec.get("net_total"),
                     "method":        rec.get("method"),
                 })
             except Exception:

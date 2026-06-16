@@ -197,6 +197,7 @@ def handle_ussd_session(
                 rec = ml_service.get_recommendation(
                     crop=crop, district=district,
                     quantity_bags=half, db=db, month=demo_month,
+                    phone_number=phone_number, session_id=session_id,
                 )
                 net = rec.get("net_total", 0)
                 price = rec.get("current_price", 0)
