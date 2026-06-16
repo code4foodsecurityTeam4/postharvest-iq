@@ -1,3 +1,32 @@
+"""
+Global LSTM price forecaster — trains across all 15 market-crop series simultaneously.
+
+Why a global model?
+    A per-series model would have ~240 sequences per crop, too few for a network
+    with O(10k) parameters to generalise. Pooling all 15 series (~1,200 sequences)
+    lets the model share representations across correlated markets. Market and crop
+    identity are encoded as one-hot columns so the model learns market-specific
+    dynamics without separate weight matrices.
+
+Why log-space training?
+    The GHS depreciation between 2021–2024 pushed wholesale maize from ~GHS 200
+    to ~GHS 1,000. Training in raw GHS space means the MinMaxScaler's [0,1] range
+    is dominated by the recent high-price era, placing older data near zero and
+    making it largely invisible to the network. Log-transforming prices makes the
+    inflationary trend linear so train and test distributions remain comparable.
+
+Direct multi-step forecasting (not recursive)
+    The target is log(price at t+3), not log(price at t+1). Recursive one-step
+    forecasting compounds error at each step; direct forecasting produces a single
+    prediction with a single error. The system only needs the t+3 price to make a
+    storage decision, so the intermediate trajectory adds no value.
+
+Data leakage prevention
+    - MinMaxScalers fit on the training split only, then applied to val and test.
+    - DataLoader uses shuffle=False — temporal ordering must be preserved.
+    - Chronological 70/15/15 split per series *before* stacking across series.
+"""
+
 # Run: python -m app.ml.train_lstm
 
 import json
@@ -31,6 +60,17 @@ np.random.seed(SEED)
 
 
 class MultivariateLSTM(nn.Module):
+    """
+    Single-layer LSTM with a linear readout for direct multi-step price forecasting.
+
+    LSTM_DROPOUT is 0.0 because with hidden=24 and ~1,200 sequences the model is
+    already capacity-constrained. Dropout degraded validation loss in experiments
+    without improving test generalisation (see scripts/lstm_experiment.py).
+
+    h0 and c0 are zero-initialised per batch — no hidden state is carried across
+    inference calls, which matches the stateless request pattern of the API.
+    """
+
     def __init__(self, input_size):
         super().__init__()
         self.lstm = nn.LSTM(input_size, LSTM_HIDDEN, LSTM_LAYERS,
@@ -45,7 +85,23 @@ class MultivariateLSTM(nn.Module):
 
 
 def make_sequences(feats, target, seq_len):
-    """Direct multi-step: each window targets the price FORECAST_HORIZON_MONTHS ahead, not recursive."""
+    """
+    Slide a window over a time series to produce (X, y) sequence pairs.
+
+    The target was already shifted by FORECAST_HORIZON_MONTHS during feature
+    engineering, so y[i] is the price at t + 3 relative to the last step of
+    X[i]. This is direct multi-step forecasting: one window, one prediction,
+    no iterative rollout.
+
+    Args:
+        feats:   scaled feature array, shape (T, n_features)
+        target:  scaled target array, shape (T,) — already shifted by horizon
+        seq_len: number of time steps per input window
+
+    Returns:
+        X: ndarray of shape (T - seq_len + 1, seq_len, n_features)
+        y: ndarray of shape (T - seq_len + 1, 1)
+    """
     X, y = [], []
     for i in range(len(feats) - seq_len + 1):
         X.append(feats[i:i+seq_len])

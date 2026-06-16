@@ -102,10 +102,8 @@ def handle_ussd_session(
                 month=demo_month,
             )
             decision = (rec.get("decision") or "STORE").upper()
-            net_total = rec.get("net_total", 0)
-            gain_per_bag = round(
-                rec.get("forecast_price", 0) - rec.get("current_price", 0)
-            )
+            net_total    = rec.get("net_total", 0)
+            gain_per_bag = round(rec.get("net_per_bag", 0))
             fcast_low  = rec.get("forecast_low")
             fcast_high = rec.get("forecast_high")
 

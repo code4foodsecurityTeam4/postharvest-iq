@@ -1,3 +1,35 @@
+"""
+Extend WFP price data to the current month using a calibrated synthetic generator.
+
+WFP VAM data for Ghana ends in mid-2023. Without extension, the models train on
+prices that peak at ~GHS 600 while the current market sits at ~GHS 800–1,000,
+making the scaler's [0,1] range systematically wrong for inference.
+
+Synthetic generation approach
+    Each market-crop series is extended independently from its last real anchor.
+    The generator applies three components:
+
+    1. Monthly drift (macro regime)
+        2024:  +2.2 %/month  — cedi depreciation and global food price shock
+        2025:  −0.3 %/month  — cedi recovery, easing food inflation
+        2026:  +0.2 %/month  — stable cedi, background inflation (~2.4 % annualised)
+
+    2. Seasonal factor (harvest cycle)
+        Prices dip Oct–Dec at harvest and peak Jun–Aug in the lean season.
+        The anchor month's factor is stripped before extending so the base level
+        is seasonal-neutral, then each synthetic month applies its own factor.
+
+    3. AR(1) noise (autocorrelated shocks)
+        noise_t = 0.7 * noise_{t-1} + ε,  ε ~ N(0, 0.025)
+        Autocorrelation coefficient 0.7 matches the empirical first-order
+        autocorrelation observed in the WFP series.
+
+All synthetic rows carry priceflag='synthetic' (prices) or flag='synth' (FX)
+so they can be safely deleted and regenerated when real data arrives:
+    DELETE FROM wfp_prices WHERE priceflag='synthetic';
+    DELETE FROM ghana_exchange_rates WHERE flag='synth';
+"""
+
 # Run: python -m scripts.extend_recent_prices
 # To undo: DELETE FROM wfp_prices WHERE priceflag='synthetic';
 #          DELETE FROM ghana_exchange_rates WHERE flag='synth';

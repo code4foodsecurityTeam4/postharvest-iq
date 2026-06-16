@@ -1,3 +1,35 @@
+"""
+STORE / SELL_NOW binary classifier — five-algorithm tournament with leakage-safe evaluation.
+
+Tournament approach
+    XGBoost, Random Forest, Gradient Boosting, Decision Tree, and Logistic Regression
+    are all trained on identical features and splits. Model selection uses *validation*
+    macro F1, not test F1, so the test set is never touched until final reporting.
+
+Class imbalance handling
+    STORE labels are rarer during harvest months (Oct–Dec). Two strategies are
+    evaluated on the training data: SMOTE oversampling and class_weight='balanced'.
+    SMOTE is applied only to the training split — never val or test — to prevent
+    resampled neighbours from leaking into the evaluation sets. Whichever strategy
+    yields higher validation F1 is carried through to the full tournament.
+
+Temporal cross-validation
+    TimeSeriesSplit(n_splits=5) preserves chronological order within each fold.
+    Standard k-fold would allow future price data to appear in a training fold,
+    creating look-ahead bias that inflates CV scores relative to true deployment.
+
+XGBoost manual search
+    XGBoost's sklearn wrapper uses __sklearn_tags__ which is incompatible with some
+    sklearn versions. A 30-candidate manual random search over TimeSeriesSplit folds
+    substitutes for RandomizedSearchCV.
+
+Label definition
+    net = (price_{t+3} - price_t) - (storage_cost * 3 months) - transport_cost
+    STORE if net > 5 % of price_t, else SELL_NOW.
+    price_{t+3} is the observed future price (from the DB), not the LSTM forecast,
+    so the classifier learns from true outcomes rather than compounded model error.
+"""
+
 # Run: python -m app.ml.train_xgboost
 
 import json
@@ -30,6 +62,26 @@ TRAIN_RATIO, VAL_RATIO = 0.70, 0.15
 
 
 def load_and_engineer(engine) -> pd.DataFrame:
+    """
+    Query wholesale prices from MySQL and produce a labelled feature DataFrame.
+
+    Features
+        Temporal: month_sin/cos (circular encoding preserves Jan–Dec continuity),
+                  is_harvest_season (Oct–Dec), is_lean_season (Jun–Aug)
+        Price dynamics: lag1–lag3, rolling_mean/std over 3 months,
+                        pct_change, price_vs_annual, price_yoy
+        Macro: GHS/USD exchange rate
+
+    Label formula
+        net = (price_t+3 - price_t) - (0.80 * 3) - (10 km * 0.20 GHS/km)
+        STORE if net > 0.05 * price_t, else SELL_NOW
+
+    Args:
+        engine: SQLAlchemy engine connected to the postharvest_iq database
+
+    Returns:
+        DataFrame with CAT_COLS + NUM_COLS + ['decision'] ready for the pipeline.
+    """
     query = """
         SELECT
             p.date, p.market, p.commodity, p.price,

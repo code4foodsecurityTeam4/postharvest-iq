@@ -1,3 +1,21 @@
+"""
+Automated retraining trigger for when new WFP price data is ingested.
+
+Compares MAX(date) of real wfp_prices rows (priceflag != 'synthetic') against
+the last_retrain_date recorded in model_metadata.json. Retrains both the LSTM
+and the classifier if new data is detected, then stamps the retrain date.
+
+Intended use: run monthly after ingesting the latest WFP VAM release, so models
+stay current without manual intervention. The --force flag bypasses the date
+check for full periodic retraining regardless of new data.
+
+Retraining order matters: LSTM must run before the classifier because the
+classifier's label definition uses the same FORECAST_HORIZON_MONTHS constant
+but is otherwise independent. In practice both can be retrained in either order;
+running LSTM first is a convention so metadata reflects the freshest LSTM metrics
+when the classifier finishes.
+"""
+
 # Run: python -m scripts.auto_retrain  [--force]
 
 import json

@@ -1,3 +1,27 @@
+"""
+Post-hoc feedback loop: score past STORE/SELL_NOW recommendations against actuals.
+
+For every recommendation logged ~3 months ago, this script looks up the actual
+observed wholesale price in wfp_prices at recommendation_date + FORECAST_HORIZON_MONTHS
+(±15-day window to handle month-end date alignment) and re-evaluates whether the
+model's decision was economically correct given what actually happened.
+
+Correctness criterion
+    Uses the same net return formula as recommendation_service.calculate_net_return:
+        net = (actual_price - current_price) - storage_cost - transport_cost
+        Correct if: (decision == STORE and net > threshold) or
+                    (decision == SELL_NOW and net <= threshold)
+
+Limitations
+    - Requires real WFP price data to exist at t+3. Synthetic rows are not used
+      for evaluation because they do not represent actual market outcomes.
+    - The ±15-day window averages available prices near the target date; thin
+      markets with sparse data may return NULL and be skipped.
+    - Accuracy here measures economic correctness of the binary decision, not
+      forecast accuracy. A correct STORE that earned only GHS 1 counts the same
+      as one that earned GHS 300.
+"""
+
 # Run: python -m scripts.evaluate_past_recommendations
 
 import os

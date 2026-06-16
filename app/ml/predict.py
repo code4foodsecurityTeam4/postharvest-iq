@@ -1,3 +1,21 @@
+"""
+Inference module. All model artifacts are loaded once at import time and held in
+module-level variables to avoid repeated disk I/O on every API request.
+
+Log-space inversion
+    The LSTM was trained to predict log(price). Its raw output is in the
+    MinMaxScaler's [0,1] range over log prices. Recovering the GHS price:
+        1. price_scaler.inverse_transform(raw_output)  →  log(price)
+        2. np.exp(log_price)                           →  GHS price
+    Both steps require the exact price_scaler instance saved during training.
+    Using a freshly-fit scaler here would silently produce wrong prices.
+
+Classifier pipeline
+    The ColumnTransformer (ohe + passthrough) and LabelEncoder are both saved
+    artifacts. The preprocessor must receive columns in the same order it was
+    fit on — [CAT_COLS + NUM_COLS] — or OneHotEncoder will silently mismap categories.
+"""
+
 import json
 import numpy as np
 import pandas as pd
@@ -14,6 +32,13 @@ from app.ml.config import (
 
 
 class MultivariateLSTM(nn.Module):
+    """
+    Inference-only copy of the training architecture. Must be structurally
+    identical to the definition in train_lstm.py so load_state_dict() succeeds.
+
+    h0/c0 are zero-initialised per call. The model is stateless across requests.
+    """
+
     def __init__(self, input_size, hidden=LSTM_HIDDEN,
                  layers=LSTM_LAYERS, drop=LSTM_DROPOUT):
         super().__init__()
@@ -45,8 +70,21 @@ with open(METADATA_PATH) as f:
 
 
 def forecast_price(recent_feature_df: pd.DataFrame) -> float:
-    """Returns the forecast price FORECAST_HORIZON_MONTHS (3) months ahead,
-    matching the storage decision horizon."""
+    """
+    Forecast the wholesale price 3 months ahead for a specific market-crop series.
+
+    Args:
+        recent_feature_df: DataFrame with at least LSTM_SEQ_LEN rows. Must contain
+                           all columns in LSTM_FEAT_COLS in the correct order.
+                           The 'price' column must be log-transformed — it is
+                           log-transformed in _get_lstm_sequence() before this call.
+
+    Returns:
+        Forecast price in GHS, rounded to 2 decimal places.
+
+    Raises:
+        ValueError: if fewer than LSTM_SEQ_LEN rows are provided.
+    """
     if len(recent_feature_df) < LSTM_SEQ_LEN:
         raise ValueError(
             f"Need at least {LSTM_SEQ_LEN} monthly rows, got {len(recent_feature_df)}."
@@ -65,6 +103,21 @@ def forecast_price(recent_feature_df: pd.DataFrame) -> float:
 
 
 def predict_decision(input_df: pd.DataFrame) -> dict:
+    """
+    Run the trained classifier on a single feature row.
+
+    Args:
+        input_df: single-row DataFrame with 'market', 'commodity', and all NUM_COLS.
+                  Prices should be in raw GHS — the classifier was trained on
+                  raw (not log-transformed) prices, unlike the LSTM.
+
+    Returns:
+        dict with:
+            decision    ('STORE' or 'SELL_NOW')
+            confidence  (probability of the predicted class, float 0–1)
+            model_used  (algorithm name from metadata)
+            all_probs   (dict of class → probability for all classes)
+    """
     CAT_COLS = ['market', 'commodity']
     NUM_COLS = [c for c in _feature_cols if c not in
                 _preprocessor.named_transformers_['ohe']

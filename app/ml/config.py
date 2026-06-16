@@ -1,3 +1,28 @@
+"""
+Central configuration for all ML components.
+
+All hyperparameters, file paths, and economic constants live here so that
+training and inference remain in sync automatically. Changing
+FORECAST_HORIZON_MONTHS, for example, propagates to the label definition,
+LSTM target shift, and storage cost calculation without any manual updates.
+
+Key design decisions recorded here
+------------------------------------
+TRAIN_START 2015-01-01
+    Pre-2015 GHS/USD regime is structurally different (managed peg vs free float).
+    Including it widens the MinMaxScaler range without adding generalisable signal.
+
+LSTM_FEAT_COLS order is fixed
+    The saved lstm_scaler.pkl was fit on this exact column order. Any reordering
+    silently corrupts inference. A full retrain is required if the list changes.
+
+STORE_THRESHOLD_PCT = 0.05
+    A relative hurdle (5 % of current price) makes the STORE label mean the same
+    thing across inflation eras: GHS 10 on a GHS 200 bag (2015) vs GHS 50 on a
+    GHS 1,000 bag (2025). A fixed nominal threshold would systematically over- or
+    under-label STORE depending on the price level.
+"""
+
 import os
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))

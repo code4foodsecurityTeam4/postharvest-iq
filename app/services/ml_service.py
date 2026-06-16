@@ -1,3 +1,32 @@
+"""
+Orchestration layer between the USSD handler and the ML models.
+
+Request flow
+    1. get_forecast()       — builds the LSTM input sequence from recent DB prices,
+                              runs inference, wraps the result with a per-crop MAE
+                              prediction interval from the saved metadata.
+    2. get_recommendation() — combines the LSTM forecast with the economic calculation
+                              (recommendation_service), runs the classifier, picks the
+                              final decision, and logs everything to the DB.
+
+Model priority
+    The classifier's decision takes priority when the ML stack loads successfully.
+    recommendation_service.calculate_net_return is the fallback for unsupported
+    markets, missing price history, or any model load failure — ensuring the service
+    always returns a decision.
+
+Prediction interval
+    forecast_low/high = forecast_price ± per-crop MAE (from test-set evaluation).
+    This is a frequentist coverage heuristic, not a Bayesian credible interval. It
+    communicates the model's *typical* absolute error to farmers, not a true
+    probability band. It is honest precisely because it comes from held-out test data.
+
+Transport cost
+    Computed from the Haversine distance to the nearest verified storage facility
+    plus a 10 km last-mile offset. The offset accounts for village-to-tarmac travel
+    not captured by the WFP GPS market coordinates.
+"""
+
 import logging
 import math
 import numpy as np
@@ -85,6 +114,26 @@ def get_recent_prices(
 
 
 def _get_lstm_sequence(db: Session, crop: str, market: str) -> pd.DataFrame:
+    """
+    Build the feature DataFrame the LSTM expects, mirroring train_lstm.py exactly.
+
+    Column construction order matters:
+        1. Log-transform 'price' — lags and rolling stats must be derived from
+           the log series, not the raw series, to match training.
+        2. Compute lag1–lag3 and rolling stats on the log series.
+        3. Append one-hot market and crop columns in LSTM_FEAT_COLS order.
+
+    Fetches LSTM_SEQ_LEN + 6 rows to ensure enough history for lag3 and rolling_std_3
+    after dropna removes the first few incomplete rows.
+
+    Args:
+        db:     SQLAlchemy session
+        crop:   commodity name matching the wfp_prices table ('Maize', ...)
+        market: WFP market name ('Tamale', 'Bolga', 'Wa', 'Kumasi', 'Techiman')
+
+    Returns:
+        DataFrame ready to pass to forecast_price(). Empty DataFrame if no rows.
+    """
     rows = db.execute(text("""
         SELECT
             p.date,
@@ -128,6 +177,22 @@ def _get_lstm_sequence(db: Session, crop: str, market: str) -> pd.DataFrame:
 
 
 def get_forecast(crop: str, district: str, db: Session) -> dict:
+    """
+    Forecast the GHS wholesale price 3 months ahead for a crop and district.
+
+    Returns a prediction interval [forecast_low, forecast_high] using per-crop
+    test-set MAE pulled from model_metadata.json. Per-crop MAE is preferred over
+    the global MAE because error magnitude varies meaningfully across crops
+    (Sorghum ±109 vs Millet ±79 GHS in the current model).
+
+    Falls back to returning current_price for all forecast fields if the LSTM
+    fails or the price history is too short, so get_recommendation() always has
+    a numeric value to work with.
+
+    Returns:
+        dict with: forecast_price, forecast_low, forecast_high, forecast_mae,
+                   current_price, method ('lstm' or 'fallback')
+    """
     prices = get_recent_prices(crop, district, db)
     current = prices[0] if prices else None
 
@@ -174,6 +239,33 @@ def get_recommendation(
     storage_cost_per_bag_month: float = 0.80,
     month: int = None,
 ) -> dict:
+    """
+    Generate and log a full STORE / SELL_NOW recommendation for a farmer.
+
+    Decision hierarchy:
+        1. ML classifier (Random Forest) — used when the model stack is loaded,
+           the market and crop are in the training distribution, and a DB session
+           is available.
+        2. Economic rule (calculate_net_return) — fallback; uses LSTM forecast
+           price directly with the 5 % threshold.
+
+    Args:
+        crop:                       'Maize', 'Millet', or 'Sorghum'
+        district:                   'Tamale', 'Bolgatanga', or 'Wa'
+        quantity_bags:              number of 100-kg bags held by the farmer
+        language:                   'en', 'dag', or 'hau'; logged for analytics only
+        phone_number:               MSISDN; logged but not used in inference
+        session_id:                 Africa's Talking session ID
+        db:                         SQLAlchemy session; required for DB access and logging
+        storage_cost_per_bag_month: GCX warehouse rate (GHS); can be overridden in tests
+        month:                      override the current calendar month (demo mode only)
+
+    Returns:
+        dict with: decision, current_price, forecast_{price,low,high,mae},
+                   net_{per_bag,total}, expected_gain, transport_cost,
+                   storage (nearest facility dict or None),
+                   ml_{confidence,all_probs,model_used}, crop, district, method
+    """
     market        = MARKET_FOR_DISTRICT.get(district, "Tamale")
     current_price = get_current_price(crop, district, db)
     forecast_data = get_forecast(crop, district, db)

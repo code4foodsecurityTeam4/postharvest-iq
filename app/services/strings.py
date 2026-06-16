@@ -18,7 +18,7 @@ STRINGS = {
         "sell_partial":   "SELL HALF, STORE HALF",
 
         # Recommendation detail lines ({} placeholders must be kept)
-        "earn_per_bag":   "Gain: GHS {gain}/bag",
+        "earn_per_bag":   "Net gain: GHS {gain}/bag",
         "total_for_bags": "{bags} bags = GHS {net} total",
         "sell_advice":    "Prices are high now. Waiting could earn you less.",
         # SELL recommendation money lines (mirror the STORE screen)
@@ -67,7 +67,7 @@ STRINGS = {
         "sell_now":       "NYƐƐRI SAHA YIN",
         "sell_partial":   "NYƐƐRI BAARIGI, KPAGI BAARIGI",
  
-        "earn_per_bag":   "Paɣa: GHS {gain}/baŋ",
+        "earn_per_bag":   "Paɣa kpeŋ: GHS {gain}/baŋ",
         "total_for_bags": "Bagi {bags} = GHS {net} kpeŋ",
         "sell_advice":    "Nyɛɛri daa bee nyaŋa. A mali kpagi a nyɛɛri a yɛla bia.",
         "sell_now_price": "GHS {price} baŋ kpem",
@@ -111,7 +111,7 @@ STRINGS = {
         "sell_now":       "SAYAR YANZU",
         "sell_partial":   "SAYAR RABI, ADANA RABI",
  
-        "earn_per_bag":   "Riba: GHS {gain}/buhu",
+        "earn_per_bag":   "Riba bayan kuɗi: GHS {gain}/buhu",
         "total_for_bags": "Buhu {bags} = GHS {net} jimla",
         "sell_advice":    "Farashin ya yi yawa yanzu. Jira na iya rage kuɗinka.",
         "sell_now_price": "GHS {price} a kowace buhu",

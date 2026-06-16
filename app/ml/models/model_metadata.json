@@ -87,8 +87,8 @@
     "XGBoost": {
       "cv_f1": 0.5068,
       "val_f1": 0.8009,
-      "test_f1": 0.7307,
-      "gap": 0.1222
+      "test_f1": 0.7198,
+      "gap": 0.1331
     },
     "Random Forest": {
       "cv_f1": 0.5063,
@@ -111,8 +111,8 @@
     "Logistic Regression": {
       "cv_f1": 0.5745,
       "val_f1": 0.7124,
-      "test_f1": 0.6217,
-      "gap": -0.04
+      "test_f1": 0.6057,
+      "gap": -0.024
     }
   },
   "all_forecast_results": {
